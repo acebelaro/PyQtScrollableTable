@@ -1,6 +1,6 @@
-from abc import ABC
+from abc import ABC, ABCMeta, abstractmethod
 from enum import Enum
-from typing import List, NamedTuple
+from typing import Any, List, NamedTuple, Optional
 from PyQt6 import QtCore
 from PyQt6.QtWidgets import QWidget, QGroupBox, QScrollArea, QLabel, QVBoxLayout
 import uuid
@@ -26,21 +26,39 @@ class TableConfig(NamedTuple):
     header_cell_css_styles: List[str]
 
 
+# Custom metaclass to resolve conflict between QWidget's metaclass and ABCMeta
+class _TableRowMeta(type(QWidget), ABCMeta):
+    pass
+
+
 class TableRow(QWidget):
 
     def __init__(
         self,
         id: str = "",
+        data: Optional[Any] = None,
     ):
         super().__init__()
 
         self._id = id
+        self._data = data
         if self._id == "":
             self._id = str(uuid.uuid4())
+            # print(f"ID generated: {self._id}")
+
+        self._create_ui()
 
     @property
     def id(self) -> str:
         return self._id
+
+    @property
+    def data(self) -> Optional[Any]:
+        return self._data
+
+    @abstractmethod
+    def _create_ui(self) -> None:
+        raise NotImplementedError()
 
 
 class Table(ABC):
@@ -92,10 +110,23 @@ class Table(ABC):
         self._rows: List[TableRow] = []
 
     @property
+    def rows(self) -> List[TableRow]:
+        return self._rows
+
+    @property
     def row_count(self) -> int:
         return len(self._rows)
 
+    def add_new_row(self, data: Any):
+        """Create and add new row at the bottom."""
+        new_row = self._create_row(data=data)
+        index = self.row_count
+        self.add_row(row_index=index, row=new_row)
+
+    # def create_row(self, row_field_value:List[Any], row_data:Any)->
+
     def add_row(self, row_index: int, row: TableRow):
+        print(f"Adding at row {row_index}")
         self._rows.insert(row_index, row)
         self._table_layout.insertWidget(row_index, row)
 
@@ -146,3 +177,9 @@ class Table(ABC):
 
     # @staticmethod
     # def
+
+    @abstractmethod
+    def _create_row(self, data: Any) -> TableRow:
+        raise NotImplementedError()
+
+    # raos
