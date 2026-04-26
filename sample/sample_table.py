@@ -1,7 +1,14 @@
+from typing import List
 from PyQt6.QtWidgets import QGroupBox
-from PyQt6 import QtCore, QtGui, QtWidgets
 
-from qt_table import Table, TableCellUiType, TableColumnConfig, TableConfig, TableRow
+from qt_table import (
+    Table,
+    TableCellUiType,
+    TableColumnConfig,
+    TableConfig,
+    TableRow,
+    TableRowFieldConfig,
+)
 
 
 class SampleTableRow(TableRow):
@@ -9,10 +16,12 @@ class SampleTableRow(TableRow):
     def __init__(
         self,
         data: int,
+        field_configs: List[TableRowFieldConfig],
     ):
         super().__init__(
             width=730,
             height=40,
+            field_configs=field_configs,
             id="",
             data=data,
         )
@@ -60,6 +69,18 @@ class SampleTable(Table):
 
     def _create_row(self, data: int) -> TableRow:
         print(f"Creating new row with data {data}")
+
+        field_configs: List[TableRowFieldConfig] = (
+            self._create_empty_table_row_field_configs()
+        )
+
+        # populate values
+        field_configs[0].value = True
+        field_configs[1].value = f"Test Name for {data}"
+        field_configs[2].value = f"{data}"
+        field_configs[3].value = ""
+
         return SampleTableRow(
+            field_configs=field_configs,
             data=data,
         )

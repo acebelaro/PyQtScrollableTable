@@ -7,6 +7,7 @@ import uuid
 
 _TABLE_HEADER_CELL_GROUPBOX_NAME = "QtTableHeaderCellGroupBox"
 _TABLE_ROW_GROUPBOX_NAME = "QtTableRowGroupBox"
+_TABLE_ROW_VALUE_CELL_GROUPBOX_NAME = "QtTableRowValueCellGroupBox"
 
 
 class TableCellUiType(Enum):
@@ -28,18 +29,49 @@ class TableConfig(NamedTuple):
     header_cell_css_styles: List[str]
 
 
+class TableRowFieldConfig:
+
+    def __init__(
+        self,
+        ui_type: TableCellUiType,
+        width: int,
+    ):
+        self._ui_type = ui_type
+        self._width = width
+        self._value: Optional[str | Any] = None
+
+    @property
+    def ui_type(self) -> TableCellUiType:
+        return self._ui_type
+
+    @property
+    def width(self) -> int:
+        return self._width
+
+    @property
+    def value(self) -> Optional[str | bool]:
+        return self._value
+
+    @value.setter
+    def value(self, v: Optional[str | bool]):
+        self._value = v
+
+
 class TableRow(QWidget):
 
     def __init__(
         self,
         width: int,
         height: int,
+        field_configs: List[TableRowFieldConfig],
         id: str = "",
         data: Optional[Any] = None,
     ):
         super().__init__()
-
+        self._width = width
+        self._height = height
         self._object_name = "TableRow"
+        self._field_configs = field_configs
         self._id = id
         self._data = data
         if self._id == "":
@@ -54,7 +86,8 @@ class TableRow(QWidget):
         )
         row_group_box.setStyleSheet(css_style_text)
 
-        self._create_ui(row_group_box=row_group_box)
+        self._create_row_fields_ui(row_group_box=row_group_box)
+
         self.setFixedHeight(height)
 
     @staticmethod
@@ -69,6 +102,35 @@ class TableRow(QWidget):
     @abstractmethod
     def _create_ui(self, row_group_box: QGroupBox) -> None:
         raise NotImplementedError()
+
+    def _create_row_fields_ui(self, row_group_box: QGroupBox):
+        row_cell_x_pos = 0
+        for field_config in self._field_configs:
+
+            row_cell_group_box = QGroupBox(parent=row_group_box)
+            row_cell_group_box.setGeometry(
+                QtCore.QRect(
+                    row_cell_x_pos,
+                    0,
+                    field_config.width,
+                    self._height - 1,
+                )
+            )
+            row_cell_group_box.setObjectName(_TABLE_ROW_VALUE_CELL_GROUPBOX_NAME)
+            row_cell_group_box.setStyleSheet(
+                f"QGroupBox#{_TABLE_ROW_VALUE_CELL_GROUPBOX_NAME}{{ border: 2px solid lightgray; }}"
+            )
+            if field_config.ui_type == TableCellUiType.CHECKBOX:
+                pass
+            elif field_config.ui_type == TableCellUiType.READONLY_TEXT:
+                pass
+            elif field_config.ui_type == TableCellUiType.EDITABLE_TEXT:
+                pass
+            elif field_config.ui_type == TableCellUiType.CUSTOM:
+                pass
+            else:
+                raise ValueError(f"Unsupported ui type {field_config.ui_type.name}")
+            row_cell_x_pos = row_cell_x_pos + field_config.width
 
 
 class Table(ABC):
@@ -131,8 +193,6 @@ class Table(ABC):
         new_row = self._create_row(data=data)
         index = self.row_count
         self.add_row(row_index=index, row=new_row)
-
-    # def create_row(self, row_field_value:List[Any], row_data:Any)->
 
     def add_row(self, row_index: int, row: TableRow):
         print(f"Adding at row {row_index}")
@@ -199,6 +259,15 @@ class Table(ABC):
         )
         column_text_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         column_text_label.setText(table_column_config.text)
+
+    def _create_empty_table_row_field_configs(self) -> List[TableRowFieldConfig]:
+        return [
+            TableRowFieldConfig(
+                ui_type=b.ui_type,
+                width=b.width,
+            )
+            for b in self._table_config.column_configs
+        ]
 
     @abstractmethod
     def _create_row(self, data: Any) -> TableRow:
