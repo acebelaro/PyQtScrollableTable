@@ -1,0 +1,1 @@
+pyuic6.exe -o .\sample\sample_main.py .\sample\sample_main.ui
