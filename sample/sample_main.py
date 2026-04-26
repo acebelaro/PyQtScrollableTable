@@ -17,7 +17,7 @@ class Ui_SampleMain(object):
         self.centralwidget = QtWidgets.QWidget(parent=SampleMain)
         self.centralwidget.setObjectName("centralwidget")
         self.grpTable = QtWidgets.QGroupBox(parent=self.centralwidget)
-        self.grpTable.setGeometry(QtCore.QRect(10, 10, 831, 471))
+        self.grpTable.setGeometry(QtCore.QRect(10, 10, 641, 471))
         self.grpTable.setTitle("")
         self.grpTable.setObjectName("grpTable")
         self.btnAddRow = QtWidgets.QPushButton(parent=self.centralwidget)

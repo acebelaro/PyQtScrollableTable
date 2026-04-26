@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, List, NamedTuple, Optional, Tuple
+from typing import Any, Callable, List, NamedTuple, Optional
 from PyQt6 import QtCore
 from PyQt6.QtWidgets import (
     QWidget,
@@ -22,6 +22,7 @@ _TABLE_HEADER_CELL_GROUPBOX_NAME = "QtTableHeaderCellGroupBox"
 _TABLE_ROW_GROUPBOX_NAME = "QtTableRowGroupBox"
 _TABLE_ROW_VALUE_CELL_GROUPBOX_NAME = "QtTableRowValueCellGroupBox"
 _TABLE_ROW_VALUE_CELL_TEXTBOX_GROUPBOX_NAME = "QtTableRowCellEditTextbox"
+_TABLE_ROW_SELECTED_CLASS_VALUE = "selected-row"
 
 
 class TableCellUiType(Enum):
@@ -29,7 +30,6 @@ class TableCellUiType(Enum):
     EDITABLE_TEXT = 1
     READONLY_TEXT = 2
     CHECKBOX = 3
-    CUSTOM = 4
 
 
 class TableColumnConfig(NamedTuple):
@@ -47,111 +47,70 @@ class TableButtonControls(NamedTuple):
 class TableConfig(NamedTuple):
     column_configs: List[TableColumnConfig]
     header_row_height: int
+    value_row_height: int
     header_cell_css_styles: List[str]
+    selected_row_color_css_value: str
     row_number_cell_format: str = ""
     button_controls: Optional[TableButtonControls] = None
 
 
-class TableCellConfig:
+class TableRowCellConfig(NamedTuple):
+    ui_type: TableCellUiType
+    cell_index: int
+    width: int
 
-    on_ = pyqtSignal()
+
+class TableRowCellValueWidget(ABC):
 
     def __init__(
         self,
         ui_type: TableCellUiType,
-        width: int,
+        cell_index: int,
+        on_value_updated: Optional[Callable[[int, Any], None]],
     ):
+        super().__init__()
         self._ui_type = ui_type
-        self._width = width
-        self._value: Optional[str | Any] = None
+        self._cell_index = cell_index
+        self._on_value_updated = on_value_updated
 
     @property
     def ui_type(self) -> TableCellUiType:
         return self._ui_type
 
     @property
-    def width(self) -> int:
-        return self._width
+    def cell_index(self) -> int:
+        return self._cell_index
 
-    @property
-    def value(self) -> Optional[str | bool]:
-        return self._value
+    @abstractmethod
+    def set_value(self, value: Any):
+        raise NotImplementedError()
 
-    @value.setter
-    def value(self, v: Optional[str | bool]):
-        self._value = v
+    @abstractmethod
+    def get_value(self) -> Any:
+        raise NotImplementedError()
 
 
-class TableRowCellCheckbox(QCheckBox):
-
-    on_checked_updated = pyqtSignal(int, bool)
+class TableRowCellTextbox(TableRowCellValueWidget):
 
     def __init__(
         self,
         parent: QGroupBox,
         cell_index: int,
         width: int,
+        value: bool,
+        on_value_updated: Optional[Callable[[int, str], None]],
     ):
-        super().__init__(parent=parent)
-        self._field_index = cell_index
-        self.checkStateChanged.connect(self._check_update)
-
-        self.setGeometry(
-            QtCore.QRect(
-                10,
-                10,
-                width - 20,
-                20,
-            )
+        super().__init__(
+            ui_type=TableCellUiType.EDITABLE_TEXT,
+            cell_index=cell_index,
+            on_value_updated=on_value_updated,
         )
-
-    def _check_update(self):
-        self.on_checked_updated.emit(self._field_index, self.isChecked())
-
-
-class TableRowCellLabel(QLabel):
-
-    on_text_updated = pyqtSignal(int, str)
-
-    def __init__(
-        self,
-        parent: QGroupBox,
-        width: int,
-        text: str,
-    ):
-        super().__init__(parent=parent)
-        self.setText(text)
-        self.setGeometry(
-            QtCore.QRect(
-                10,
-                10,
-                width - 20,
-                20,
-            )
-        )
-
-
-class TableRowCellTextbox(QLineEdit):
-
-    on_text_updated = pyqtSignal(int, str)
-
-    def __init__(
-        self,
-        parent: QGroupBox,
-        cell_index: int,
-        width: int,
-        text: str,
-    ):
-        super().__init__(parent=parent)
-        self._field_index = cell_index
-        self.textChanged.connect(self._text_updated)
-        self.setText(text)
-
-        self.setObjectName(_TABLE_ROW_VALUE_CELL_TEXTBOX_GROUPBOX_NAME)
-        self.setStyleSheet(
+        self._line_edit = QLineEdit(parent=parent)
+        self._line_edit.setObjectName(_TABLE_ROW_VALUE_CELL_TEXTBOX_GROUPBOX_NAME)
+        self._line_edit.setStyleSheet(
             f"QLineEdit#{_TABLE_ROW_VALUE_CELL_TEXTBOX_GROUPBOX_NAME} {{ border: none; }}"
         )
-        self.setGeometry(
+        self._line_edit.setGeometry(
             QtCore.QRect(
                 10,
                 10,
@@ -159,9 +118,87 @@ class TableRowCellTextbox(QLineEdit):
                 20,
             )
         )
+        self._line_edit.textChanged.connect(self._text_updated)
+        self.set_value(value=value)
+
+    def set_value(self, value: str):
+        self._line_edit.setText(value)
+
+    def get_value(self) -> str:
+        return self._line_edit.text()
 
     def _text_updated(self):
-        self.on_text_updated.emit(self._field_index, self.text())
+        self._on_value_updated(self._cell_index, self._line_edit.text())
+
+
+class TableRowCellCheckbox(TableRowCellValueWidget):
+
+    def __init__(
+        self,
+        parent: QGroupBox,
+        cell_index: int,
+        width: int,
+        value: bool,
+        on_value_updated: Optional[Callable[[int, bool], None]],
+    ):
+        super().__init__(
+            ui_type=TableCellUiType.CHECKBOX,
+            cell_index=cell_index,
+            on_value_updated=on_value_updated,
+        )
+        self._check_box = QCheckBox(parent=parent)
+        self._check_box.setGeometry(
+            QtCore.QRect(
+                10,
+                10,
+                width - 20,
+                20,
+            )
+        )
+        self._check_box.checkStateChanged.connect(self._checked_updated)
+        self.set_value(value=value)
+
+    def set_value(self, value: str):
+        self._check_box.setChecked(value)
+
+    def get_value(self) -> bool:
+        return self._check_box.isChecked()
+
+    def _checked_updated(self):
+        self._on_value_updated(self._cell_index, self._check_box.isChecked())
+
+
+class TableRowCellLabel(TableRowCellValueWidget):
+
+    def __init__(
+        self,
+        ui_type: TableCellUiType,
+        parent: QGroupBox,
+        cell_index: int,
+        width: int,
+        text: bool,
+    ):
+        super().__init__(
+            ui_type=ui_type,
+            cell_index=cell_index,
+            on_value_updated=None,
+        )
+        self._label = QLabel(parent=parent)
+        self._label.setGeometry(
+            QtCore.QRect(
+                10,
+                10,
+                width - 20,
+                20,
+            )
+        )
+        self.set_value(value=text)
+
+    def set_value(self, value: str):
+        self._label.setText(value)
+
+    def get_value(self) -> str:
+        return self._label.text()
 
 
 class FieldValue(NamedTuple):
@@ -169,9 +206,15 @@ class FieldValue(NamedTuple):
     value: str | bool
 
 
-class TableCellWidget(NamedTuple):
-    config: TableCellConfig
-    value_widget: QWidget
+class TableRowConfig(NamedTuple):
+    width: int
+    height: int
+    selected_row_color_css_value: str
+
+
+class TableRowCellValue(NamedTuple):
+    cell_index: int
+    value: str | bool
 
 
 class TableRow(QWidget):
@@ -184,33 +227,30 @@ class TableRow(QWidget):
 
     def __init__(
         self,
-        width: int,
-        height: int,
-        cell_configs: List[TableCellConfig],
+        config: TableRowConfig,
+        cell_configs: List[TableRowCellConfig],
         id: str = "",
         data: Optional[Any] = None,
     ):
         super().__init__()
-        self._width = width
-        self._height = height
-        self._object_name = "TableRow"
+        self._config = config
         self._cell_configs = cell_configs
         self._id = id
         self._data = data
-        self._cell_widgets: List[TableCellWidget] = []
+        self._cell_widgets: List[TableRowCellValueWidget] = []
         self._is_selected = False
 
         if self._id == "":
             self._id = str(uuid.uuid4())
 
         self._row_group_box = QGroupBox(parent=self)
-        self._row_group_box.setGeometry(QtCore.QRect(0, 0, width, height))
+        self._row_group_box.setGeometry(QtCore.QRect(0, 0, config.width, config.height))
         self._row_group_box.setTitle("")
         self._update_property_due_to_selected_state()
 
         self._create_row_fields_ui(row_group_box=self._row_group_box)
 
-        self.setFixedHeight(height)
+        self.setFixedHeight(config.height)
 
         self._on_update_selected_state.connect(
             self._update_property_due_to_selected_state
@@ -224,7 +264,7 @@ class TableRow(QWidget):
     def row_index_str(self) -> str:
         row_index_cell_widget = self._get_row_index_cell_widget()
         if row_index_cell_widget:
-            return row_index_cell_widget.text()
+            return row_index_cell_widget.get_value()
         return ""
 
     @property
@@ -249,19 +289,31 @@ class TableRow(QWidget):
     def set_row_index_cell_value(self, row_index_cell_value: str):
         row_index_cell_widget = self._get_row_index_cell_widget()
         if row_index_cell_widget:
-            # label_widget: QLabel = row_index_cell_widget.value_widget
-            row_index_cell_widget.setText(row_index_cell_value)
+            row_index_cell_widget.set_value(value=row_index_cell_value)
+
+    def set_cell_values(self, cell_values: List[TableRowCellValue]):
+        for cell_widget in self._cell_widgets:
+            cell_info = next(
+                (c for c in cell_values if c.cell_index == cell_widget.cell_index),
+                None,
+            )
+            if cell_info:
+                cell_widget.set_value(cell_info.value)
+            else:
+                raise ValueError(
+                    f"Cannot find value for cell widget index '{cell_widget.cell_index}'"
+                )
 
     @abstractmethod
     def _create_ui(self, row_group_box: QGroupBox) -> None:
         raise NotImplementedError()
 
-    def _get_row_index_cell_widget(self) -> Optional[QLabel]:
+    def _get_row_index_cell_widget(self) -> Optional[TableRowCellValueWidget]:
         return next(
             (
-                c.value_widget
+                c
                 for c in self._cell_widgets
-                if c.config.ui_type == TableCellUiType.ROW_INDEX_CELL
+                if c.ui_type == TableCellUiType.ROW_INDEX_CELL
             ),
             None,
         )
@@ -283,7 +335,7 @@ class TableRow(QWidget):
         self,
         row_group_box: QGroupBox,
         cell_index: int,
-        cell_config: TableCellConfig,
+        cell_config: TableRowCellConfig,
         x_pos: int,
     ) -> QGroupBox:
         row_cell_group_box = QGroupBox(parent=row_group_box)
@@ -292,12 +344,12 @@ class TableRow(QWidget):
                 x_pos,
                 0,
                 cell_config.width,
-                self._height - 1,
+                self._config.height - 1,
             )
         )
         row_cell_group_box.setObjectName(_TABLE_ROW_VALUE_CELL_GROUPBOX_NAME)
         row_cell_group_box.setStyleSheet(
-            f"QGroupBox#{_TABLE_ROW_VALUE_CELL_GROUPBOX_NAME}{{ border: 2px solid lightgray; }}"
+            f"QGroupBox#{_TABLE_ROW_VALUE_CELL_GROUPBOX_NAME}{{ border: 1px solid lightgray; }}"
         )
         row_cell_value_widget = self._create_row_cell_value_widget(
             row_cell_group_box=row_cell_group_box,
@@ -305,49 +357,43 @@ class TableRow(QWidget):
             cell_config=cell_config,
         )
         if row_cell_value_widget:
-            self._cell_widgets.append(
-                TableCellWidget(
-                    config=cell_config,
-                    value_widget=row_cell_value_widget,
-                )
-            )
+            self._cell_widgets.append(row_cell_value_widget)
         return row_cell_group_box
 
     def _create_row_cell_value_widget(
         self,
         row_cell_group_box: QGroupBox,
         cell_index: int,
-        cell_config: TableCellConfig,
-    ) -> QWidget:
+        cell_config: TableRowCellConfig,
+    ) -> TableRowCellValueWidget:
         row_cell_widget = None
         if cell_config.ui_type == TableCellUiType.CHECKBOX:
             row_cell_widget = TableRowCellCheckbox(
                 parent=row_cell_group_box,
                 cell_index=cell_index,
                 width=cell_config.width,
-            )
-            row_cell_widget.on_checked_updated.connect(
-                self._checkbox_cell_checked_updated
+                value=False,
+                on_value_updated=self._checkbox_cell_checked_updated,
             )
         elif (
             cell_config.ui_type == TableCellUiType.READONLY_TEXT
             or cell_config.ui_type == TableCellUiType.ROW_INDEX_CELL
         ):
             row_cell_widget = TableRowCellLabel(
+                ui_type=cell_config.ui_type,
                 parent=row_cell_group_box,
+                cell_index=cell_config.cell_index,
                 width=cell_config.width,
-                text=cell_config.value,
+                text="",
             )
         elif cell_config.ui_type == TableCellUiType.EDITABLE_TEXT:
             row_cell_widget = TableRowCellTextbox(
                 parent=row_cell_group_box,
                 cell_index=cell_index,
                 width=cell_config.width,
-                text=cell_config.value,
+                value="",
+                on_value_updated=self._textbox_cell_text_updated,
             )
-            row_cell_widget.on_text_updated.connect(self._textbox_cell_text_updated)
-        elif cell_config.ui_type == TableCellUiType.CUSTOM:
-            pass
         else:
             raise ValueError(f"Unsupported ui type {cell_config.ui_type.name}")
         return row_cell_widget
@@ -375,23 +421,28 @@ class TableRow(QWidget):
         )
 
     def _update_property_due_to_selected_state(self):
-        print(self._is_selected)
+        current_class_value = self._row_group_box.property("class")
+        new_class_value = ""
         if self._is_selected:
-            self._row_group_box.setProperty("class", "selected-row")
+            new_class_value = _TABLE_ROW_SELECTED_CLASS_VALUE
         else:
-            self._row_group_box.setProperty("class", "")
+            new_class_value = ""
 
-        css_style_text = f"QGroupBox#{_TABLE_ROW_GROUPBOX_NAME}{{ border: 1px solid black; }} QGroupBox.selected {{ color: red; }}"
-        self._row_group_box.setStyleSheet(css_style_text)
-        self._row_group_box.setObjectName(_TABLE_ROW_GROUPBOX_NAME)
-        css_style_text = f"""QGroupBox#{_TABLE_ROW_GROUPBOX_NAME}{{
-    border: 1px solid black;
-}}
-.selected-row {{
-    background-color: #0ec0e8;
-}}"""
-        self._row_group_box.setStyleSheet(css_style_text)
-        self.on_row_selected_state_updated.emit(self._id, self._is_selected)
+        if current_class_value != new_class_value:
+            self._row_group_box.setProperty("class", new_class_value)
+            css_style_text = (
+                f"QGroupBox#{_TABLE_ROW_GROUPBOX_NAME}{{ border: 1px solid black; }}"
+            )
+            self._row_group_box.setStyleSheet(css_style_text)
+            self._row_group_box.setObjectName(_TABLE_ROW_GROUPBOX_NAME)
+            css_style_text = f"""QGroupBox#{_TABLE_ROW_GROUPBOX_NAME}{{
+        border: 1px solid black;
+    }}
+    .selected-row {{
+        background-color: {self._config.selected_row_color_css_value};
+    }}"""
+            self._row_group_box.setStyleSheet(css_style_text)
+            self.on_row_selected_state_updated.emit(self._id, self._is_selected)
 
 
 class TableRowInfo(NamedTuple):
@@ -400,6 +451,8 @@ class TableRowInfo(NamedTuple):
 
 
 class Table(ABC):
+
+    on_rows_swapped = pyqtSignal(int, int)
 
     def __init__(
         self,
@@ -412,6 +465,7 @@ class Table(ABC):
         self._groupbox_container = groupbox_container
         self._table_config = table_config
 
+        self._row_width = 0
         self._columng_group_boxes: List[QGroupBox] = self._create_header_row()
 
         # create scroll area
@@ -473,9 +527,9 @@ class Table(ABC):
         """Create and add new row at the bottom."""
         row_index = self.row_count
         new_row = self._create_row(row_index=row_index, data=data)
-        self.add_row(row_index=row_index, row=new_row)
+        self.add_row_at_index(row_index=row_index, row=new_row)
 
-    def add_row(self, row_index: int, row: TableRow):
+    def add_row_at_index(self, row_index: int, row: TableRow):
         print(f"Adding at row {row_index}")
         self._rows.insert(row_index, row)
         self._table_layout.insertWidget(row_index, row)
@@ -484,9 +538,14 @@ class Table(ABC):
         row.on_row_selected_state_updated.connect(self._on_row_selected_state_updated)
         row.on_row_double_clicked.connect(self._on_row_double_clicked)
 
+    def update_row_at_index(self, row_index: int, data: Any):
+        if row_index < self.row_count:
+            cell_values = self._create_row_cell_values(row_index=row_index, data=data)
+            self._rows[row_index].set_cell_values(cell_values=cell_values)
+
     def _create_header_row(self) -> List[QGroupBox]:
         columng_group_boxes: List[QGroupBox] = []
-        group_box_x_pos = 0
+        self._row_width = 0
         table_column_config_count = len(self._table_config.column_configs)
         for index in range(table_column_config_count):
             table_column_config = self._table_config.column_configs[index]
@@ -495,12 +554,12 @@ class Table(ABC):
                 is_last_column = True
             columng_group_box = self._create_header_cell_group_box(
                 table_column_config=table_column_config,
-                x_pos=group_box_x_pos,
+                x_pos=self._row_width,
                 is_last_column=is_last_column,
             )
-            group_box_x_pos = group_box_x_pos + table_column_config.width
+            self._row_width = self._row_width + table_column_config.width
             columng_group_boxes.append(columng_group_box)
-        if group_box_x_pos > self._groupbox_container.width():
+        if self._row_width > self._groupbox_container.width():
             raise ValueError(
                 f"Table '{self._name}' column header total width exceeds given group box container width!"
             )
@@ -545,14 +604,19 @@ class Table(ABC):
         column_text_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         column_text_label.setText(table_column_config.text)
 
-    def _create_empty_table_row_field_configs(self) -> List[TableCellConfig]:
-        return [
-            TableCellConfig(
-                ui_type=b.ui_type,
-                width=b.width,
+    def _create_empty_table_row_field_configs(self) -> 1:
+        row_field_config_list: List[TableRowCellConfig] = []
+        cell_index = 0
+        for column_config in self._table_config.column_configs:
+            row_field_config_list.append(
+                TableRowCellConfig(
+                    ui_type=column_config.ui_type,
+                    cell_index=cell_index,
+                    width=column_config.width,
+                )
             )
-            for b in self._table_config.column_configs
-        ]
+            cell_index = cell_index + 1
+        return row_field_config_list
 
     def _create_row_index_cell_value(self, row_index: int) -> str:
         row_index_str = f"{row_index+1}"
@@ -644,6 +708,11 @@ class Table(ABC):
         for row in self._rows:
             print(f"  {row.row_index_str}")
 
+        self._on_rows_swapped(
+            lower_row_index=lower_row_info.row_index,
+            upper_row_index=upper_row_info.row_index,
+        )
+
     def _delete_selected(self):
         selected_row_info = self._get_selected_row_info()
         if selected_row_info:
@@ -694,7 +763,41 @@ class Table(ABC):
                 print("Nowhere to move down")
 
     @abstractmethod
-    def _create_row(self, row_index: int, data: Any) -> TableRow:
+    def _on_rows_swapped(
+        self,
+        lower_row_index: int,
+        upper_row_index: int,
+    ):
+        raise NotImplementedError()
+
+    def _create_row(self, row_index: int, data: int) -> TableRow:
+        print(f"Creating new row with data {data}")
+
+        cell_info_list: List[TableRowCellConfig] = (
+            self._create_empty_table_row_field_configs()
+        )
+
+        row = TableRow(
+            config=TableRowConfig(
+                width=self._row_width,
+                height=self._table_config.value_row_height,
+                selected_row_color_css_value=self._table_config.selected_row_color_css_value,
+            ),
+            cell_configs=cell_info_list,
+            data=data,
+        )
+
+        row_cell_values = self._create_row_cell_values(row_index=row_index, data=data)
+        row.set_cell_values(cell_values=row_cell_values)
+
+        return row
+
+    @abstractmethod
+    def _create_row_cell_values(
+        self,
+        row_index: int,
+        data: Any,
+    ) -> List[TableRowCellValue]:
         raise NotImplementedError()
 
     @abstractmethod
