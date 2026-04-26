@@ -45,7 +45,7 @@ class SampleTable(Table):
                         width=70,
                     ),
                     TableColumnConfig(
-                        ui_type=TableCellUiType.READONLY_TEXT,
+                        ui_type=TableCellUiType.EDITABLE_TEXT,
                         text="Name",
                         width=380,
                     ),
