@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>902</width>
+    <width>1001</width>
     <height>508</height>
    </rect>
   </property>
@@ -25,7 +25,7 @@
      <rect>
       <x>10</x>
       <y>10</y>
-      <width>751</width>
+      <width>831</width>
       <height>471</height>
      </rect>
     </property>
@@ -36,14 +36,53 @@
    <widget class="QPushButton" name="btnAddRow">
     <property name="geometry">
      <rect>
-      <x>770</x>
+      <x>860</x>
       <y>10</y>
-      <width>111</width>
+      <width>121</width>
       <height>31</height>
      </rect>
     </property>
     <property name="text">
      <string>Add Row</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="btnDelete">
+    <property name="geometry">
+     <rect>
+      <x>860</x>
+      <y>50</y>
+      <width>121</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Delete</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="btnMoveUp">
+    <property name="geometry">
+     <rect>
+      <x>860</x>
+      <y>90</y>
+      <width>121</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Move Up</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="btnMoveDown">
+    <property name="geometry">
+     <rect>
+      <x>860</x>
+      <y>130</y>
+      <width>121</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Move Down</string>
     </property>
    </widget>
   </widget>
