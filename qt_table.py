@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, List, NamedTuple, Optional
+from typing import Any, List, NamedTuple, Optional, Tuple
 from PyQt6 import QtCore
 from PyQt6.QtWidgets import (
     QWidget,
@@ -221,6 +221,13 @@ class TableRow(QWidget):
         return self._id
 
     @property
+    def row_index_str(self) -> str:
+        row_index_cell_widget = self._get_row_index_cell_widget()
+        if row_index_cell_widget:
+            return row_index_cell_widget.text()
+        return ""
+
+    @property
     def data(self) -> Optional[Any]:
         return self._data
 
@@ -240,21 +247,24 @@ class TableRow(QWidget):
         self.on_row_double_clicked.emit(self._id)
 
     def set_row_index_cell_value(self, row_index_cell_value: str):
-        row_index_cell_widget = next(
+        row_index_cell_widget = self._get_row_index_cell_widget()
+        if row_index_cell_widget:
+            # label_widget: QLabel = row_index_cell_widget.value_widget
+            row_index_cell_widget.setText(row_index_cell_value)
+
+    @abstractmethod
+    def _create_ui(self, row_group_box: QGroupBox) -> None:
+        raise NotImplementedError()
+
+    def _get_row_index_cell_widget(self) -> Optional[QLabel]:
+        return next(
             (
-                c
+                c.value_widget
                 for c in self._cell_widgets
                 if c.config.ui_type == TableCellUiType.ROW_INDEX_CELL
             ),
             None,
         )
-        if row_index_cell_widget:
-            label_widget: QLabel = row_index_cell_widget.value_widget
-            label_widget.setText(row_index_cell_value)
-
-    @abstractmethod
-    def _create_ui(self, row_group_box: QGroupBox) -> None:
-        raise NotImplementedError()
 
     def _create_row_fields_ui(self, row_group_box: QGroupBox):
         row_cell_x_pos = 0
@@ -382,6 +392,11 @@ class TableRow(QWidget):
 }}"""
         self._row_group_box.setStyleSheet(css_style_text)
         self.on_row_selected_state_updated.emit(self._id, self._is_selected)
+
+
+class TableRowInfo(NamedTuple):
+    row: TableRow
+    row_index: int
 
 
 class Table(ABC):
@@ -584,32 +599,99 @@ class Table(ABC):
             )
             row_index = row_index + 1
 
-    def _delete_selected(self):
+    def _get_selected_row_info(self) -> Optional[TableRowInfo]:
         selected_row = self.selected_row
         if selected_row:
-            row_index = self._get_row_index(row=selected_row)
-            if row_index != -1:
-                # row_to_delete = self._rows[row_index]
-                data = self._rows[row_index].data
-                del self._rows[row_index]
-                self._table_layout.removeWidget(selected_row)
-                selected_row.setParent(None)
-                selected_row.deleteLater()
+            selected_row_index = self._get_row_index(row=selected_row)
+            if selected_row_index != -1:
+                return TableRowInfo(
+                    row=selected_row,
+                    row_index=selected_row_index,
+                )
+        return None
 
-                # TODO: adjust steps here
-                self._adjust_row_index_cells(start_row_index=row_index)
+    def _swap_row_index(
+        self,
+        upper_row_info: TableRowInfo,
+        lower_row_info: TableRowInfo,
+    ):
+        print(
+            f"Swapping {upper_row_info.row.row_index_str} <-> {lower_row_info.row.row_index_str}..."
+        )
 
-                self._on_row_deleted(row_index=row_index, data=data)
+        deleted_row = self._rows[lower_row_info.row_index]
+        del self._rows[lower_row_info.row_index]
+        self._table_layout.removeWidget(lower_row_info.row)
+
+        self._rows.insert(upper_row_info.row_index, deleted_row)
+        self._table_layout.insertWidget(upper_row_info.row_index, deleted_row)
+
+        lower_row_index_cell_value = self._create_row_index_cell_value(
+            row_index=lower_row_info.row_index
+        )
+        upper_row_index_cell_value = self._create_row_index_cell_value(
+            row_index=upper_row_info.row_index
+        )
+
+        self._rows[lower_row_info.row_index].set_row_index_cell_value(
+            row_index_cell_value=lower_row_index_cell_value
+        )
+        self._rows[upper_row_info.row_index].set_row_index_cell_value(
+            row_index_cell_value=upper_row_index_cell_value
+        )
+
+        print("Updated rows")
+        for row in self._rows:
+            print(f"  {row.row_index_str}")
+
+    def _delete_selected(self):
+        selected_row_info = self._get_selected_row_info()
+        if selected_row_info:
+            selected_row = selected_row_info.row
+            selected_row_index = selected_row_info.row_index
+            data = self._rows[selected_row_index].data
+            del self._rows[selected_row_index]
+            self._table_layout.removeWidget(selected_row)
+            selected_row.setParent(None)
+            selected_row.deleteLater()
+
+            self._adjust_row_index_cells(start_row_index=selected_row_index)
+
+            self._on_row_deleted(row_index=selected_row_index, data=data)
         else:
             print("No selected row index.")
 
     def _move_up_selected(self):
-        if self.selected_row:
-            pass
+        selected_row_info = self._get_selected_row_info()
+        if selected_row_info:
+            upper_row_index = selected_row_info.row_index - 1
+            if upper_row_index >= 0:
+                upper_row_info = TableRowInfo(
+                    row=self._rows[upper_row_index],
+                    row_index=upper_row_index,
+                )
+                self._swap_row_index(
+                    upper_row_info=upper_row_info,
+                    lower_row_info=selected_row_info,
+                )
+            else:
+                print("Nowhere to move up")
 
     def _move_down_selected(self):
-        if self.selected_row:
-            pass
+        selected_row_info = self._get_selected_row_info()
+        if selected_row_info:
+            lower_row_index = selected_row_info.row_index + 1
+            if lower_row_index < self.row_count:
+                lower_row_info = TableRowInfo(
+                    row=self._rows[lower_row_index],
+                    row_index=lower_row_index,
+                )
+                self._swap_row_index(
+                    upper_row_info=selected_row_info,
+                    lower_row_info=lower_row_info,
+                )
+            else:
+                print("Nowhere to move down")
 
     @abstractmethod
     def _create_row(self, row_index: int, data: Any) -> TableRow:
