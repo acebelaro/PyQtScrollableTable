@@ -2,7 +2,9 @@ from typing import List
 from PyQt6.QtWidgets import QGroupBox
 
 from qt_table_types import (
+    BeforeUpdateConfirmers,
     RowClassNameDeciderParam,
+    RowInfo,
     TableButtonControls,
     TableCellUiType,
     TableElemClassStyle,
@@ -86,6 +88,11 @@ class SampleTable(Table):
                 # selected_row_color_css_value="#0ec0e8",
                 row_number_cell_format=f"Step {ROW_INDEX_PLACEHOLDER_TOKEN}",
                 button_controls=button_controls,
+                before_update_confirmers=BeforeUpdateConfirmers(
+                    confirm_row_addition=self._confirm_row_addition,
+                    confirm_row_deletion=self._confirm_row_deletion,
+                    confirm_row_swap=self._confirm_row_swap,
+                ),
             ),
         )
 
@@ -122,3 +129,17 @@ class SampleTable(Table):
         upper_row_index: int,
     ):
         print(f"Swapped {lower_row_index} <-> {upper_row_index}")
+
+    def _confirm_row_addition(self, row_info: RowInfo) -> bool:
+        print("Just add...")
+        return True
+
+    def _confirm_row_deletion(self, row_info: RowInfo) -> bool:
+        print("Just delete...")
+        return True
+
+    def _confirm_row_swap(
+        self, upper_row_info: RowInfo, lower_row_info: RowInfo
+    ) -> bool:
+        print("Just swap...")
+        return True

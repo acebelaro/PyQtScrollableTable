@@ -12,6 +12,7 @@ from PyQt6.QtCore import pyqtSignal
 
 from qt_table_row import TableRow
 from qt_table_types import (
+    RowInfo,
     TableColumnConfig,
     TableConfig,
     TableRowCellConfig,
@@ -113,13 +114,27 @@ class Table(ABC):
         self.add_row_at_index(row_index=row_index, row=new_row)
 
     def add_row_at_index(self, row_index: int, row: TableRow):
-        print(f"Adding at row {row_index}")
-        self._rows.insert(row_index, row)
-        self._table_layout.insertWidget(row_index, row)
+        proceed_to_add = True
+        confirm_row_addition = (
+            self._config.before_update_confirmers.confirm_row_addition
+        )
+        if confirm_row_addition:
+            proceed_to_add = confirm_row_addition(
+                RowInfo(
+                    row_index=row_index,
+                    data=row.data,
+                )
+            )
+        if proceed_to_add:
+            print(f"Adding at row {row_index}")
+            self._rows.insert(row_index, row)
+            self._table_layout.insertWidget(row_index, row)
 
-        row.on_value_cell_updated.connect(self._on_value_cell_updated)
-        row.on_row_selected_state_updated.connect(self._on_row_selected_state_updated)
-        row.on_row_double_clicked.connect(self._on_row_double_clicked)
+            row.on_value_cell_updated.connect(self._on_value_cell_updated)
+            row.on_row_selected_state_updated.connect(
+                self._on_row_selected_state_updated
+            )
+            row.on_row_double_clicked.connect(self._on_row_double_clicked)
 
     def update_row_at_index(self, row_index: int, data: Any):
         if row_index < self.row_count:
@@ -272,6 +287,21 @@ class Table(ABC):
             f"Swapping {upper_row_info.row.row_index_str} <-> {lower_row_info.row.row_index_str}..."
         )
 
+        confirm_row_swap = self._config.before_update_confirmers.confirm_row_swap
+        if confirm_row_swap:
+            proceed_swap = confirm_row_swap(
+                upper_row_info=RowInfo(
+                    row_index=upper_row_info.row_index,
+                    data=upper_row_info.row.data,
+                ),
+                lower_row_info=RowInfo(
+                    row_index=lower_row_info.row_index,
+                    data=lower_row_info.row.data,
+                ),
+            )
+            if not proceed_swap:
+                return
+
         deleted_row = self._rows[lower_row_info.row_index]
         del self._rows[lower_row_info.row_index]
         self._table_layout.removeWidget(lower_row_info.row)
@@ -305,26 +335,43 @@ class Table(ABC):
     def _delete_selected(self):
         selected_row_info = self._get_selected_row_info()
         if selected_row_info:
-            selected_row = selected_row_info.row
-            selected_row_index = selected_row_info.row_index
-            data = self._rows[selected_row_index].data
-            del self._rows[selected_row_index]
-            self._table_layout.removeWidget(selected_row)
-            selected_row.setParent(None)
-            selected_row.deleteLater()
 
-            self._adjust_row_index_cells(start_row_index=selected_row_index)
+            proceed_to_delete = True
+            confirm_row_deletion = (
+                self._config.before_update_confirmers.confirm_row_deletion
+            )
+            if confirm_row_deletion:
+                proceed_to_delete = confirm_row_deletion(
+                    RowInfo(
+                        row_index=selected_row_info.row_index,
+                        data=selected_row_info.row.data,
+                    )
+                )
 
-            self._on_row_deleted(row_index=selected_row_index, data=data)
+            if proceed_to_delete:
+                selected_row = selected_row_info.row
+                selected_row_index = selected_row_info.row_index
+                data = self._rows[selected_row_index].data
+                del self._rows[selected_row_index]
+                self._table_layout.removeWidget(selected_row)
+                selected_row.setParent(None)
+                selected_row.deleteLater()
 
-            if self._config.select_next_row_after_row_deletion:
-                new_selected_row_index = selected_row_index
-                row_count = self.row_count
-                if new_selected_row_index == row_count:
-                    new_selected_row_index = row_count - 1
+                self._adjust_row_index_cells(start_row_index=selected_row_index)
 
-                if new_selected_row_index >= 0 and new_selected_row_index < row_count:
-                    self._rows[new_selected_row_index].set_as_selected()
+                self._on_row_deleted(row_index=selected_row_index, data=data)
+
+                if self._config.select_next_row_after_row_deletion:
+                    new_selected_row_index = selected_row_index
+                    row_count = self.row_count
+                    if new_selected_row_index == row_count:
+                        new_selected_row_index = row_count - 1
+
+                    if (
+                        new_selected_row_index >= 0
+                        and new_selected_row_index < row_count
+                    ):
+                        self._rows[new_selected_row_index].set_as_selected()
 
         else:
             print("No selected row index.")

@@ -41,8 +41,7 @@ class TableRowCellValue(NamedTuple):
 class BeforeUpdateConfirmers(NamedTuple):
     confirm_row_addition: Optional[Callable[[RowInfo], bool]] = None
     confirm_row_deletion: Optional[Callable[[RowInfo], bool]] = None
-    confirm_row_move_up: Optional[Callable[[RowInfo], bool]] = None
-    confirm_row_move_down: Optional[Callable[[RowInfo], bool]] = None
+    confirm_row_swap: Optional[Callable[[RowInfo, RowInfo], bool]] = None
 
 
 class TableColumnConfig(NamedTuple):
