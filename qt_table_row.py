@@ -15,11 +15,12 @@ from qt_table_row_cell import (
     TableRowCellValueWidget,
 )
 from qt_table_types import (
-    FieldValue,
+    RowCellValue,
     RowClassNameDeciderParam,
     TableCellUiType,
     TableRowCellConfig,
     TableRowCellValue,
+    TableRowCellValueUpdatedParam,
     TableValueRowConfig,
 )
 
@@ -28,7 +29,7 @@ _TABLE_ROW_VALUE_CELL_GROUPBOX_NAME = "QtTableRowValueCellGroupBox"
 
 class TableRow(QWidget):
 
-    on_value_cell_updated = pyqtSignal(str, int, FieldValue)
+    on_value_cell_updated = pyqtSignal(TableRowCellValueUpdatedParam)
     on_row_selected_state_updated = pyqtSignal(str, bool)
     on_row_double_clicked = pyqtSignal(str)
 
@@ -88,12 +89,17 @@ class TableRow(QWidget):
     def is_selected(self) -> bool:
         return self._is_selected
 
+    def set_as_selected(self):
+        self._is_selected = True
+        self._update_property_due_to_selected_state()
+
     def clear_selected_state(self):
         self._is_selected = False
         self._update_property_due_to_selected_state()
 
     def mousePressEvent(self, event: QMouseEvent):
         self._is_selected = not self._is_selected
+        self.on_row_selected_state_updated.emit(self._id, self._is_selected)
         self._on_update_selected_state.emit()
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
@@ -224,25 +230,29 @@ class TableRow(QWidget):
         return row_cell_widget
 
     def _checkbox_cell_checked_updated(self, cell_index: int, checked: bool):
-        field_value = FieldValue(
+        cell_value = RowCellValue(
             row_data=self.data,
             value=checked,
         )
         self.on_value_cell_updated.emit(
-            self._id,
-            cell_index,
-            field_value,
+            TableRowCellValueUpdatedParam(
+                row_id=self._id,
+                cell_index=cell_index,
+                cell_value=cell_value,
+            )
         )
 
     def _textbox_cell_text_updated(self, cell_index: int, text: str):
-        field_value = FieldValue(
+        cell_value = RowCellValue(
             row_data=self.data,
             value=text,
         )
         self.on_value_cell_updated.emit(
-            self._id,
-            cell_index,
-            field_value,
+            TableRowCellValueUpdatedParam(
+                row_id=self._id,
+                cell_index=cell_index,
+                cell_value=cell_value,
+            )
         )
 
     def _update_property_due_to_selected_state(self):

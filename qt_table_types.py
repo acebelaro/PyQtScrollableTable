@@ -13,8 +13,8 @@ class TableCellUiType(Enum):
 
 class TableRowCellConfig(NamedTuple):
     ui_type: TableCellUiType
-    cell_index: int
     width: int
+    cell_index: int
 
 
 class TableButtonControls(NamedTuple):
@@ -23,7 +23,7 @@ class TableButtonControls(NamedTuple):
     move_down_selected: Optional[QPushButton] = None
 
 
-class FieldValue(NamedTuple):
+class RowCellValue(NamedTuple):
     row_data: Any
     value: str | bool
 
@@ -79,3 +79,10 @@ class TableConfig(NamedTuple):
     row_number_cell_format: str = ""
     button_controls: Optional[TableButtonControls] = None
     before_update_confirmers: Optional[BeforeUpdateConfirmers] = None
+    select_next_row_after_row_deletion: bool = True
+
+
+class TableRowCellValueUpdatedParam(NamedTuple):
+    row_id: str
+    cell_index: int
+    cell_value: RowCellValue

@@ -12,11 +12,11 @@ from PyQt6.QtCore import pyqtSignal
 
 from qt_table_row import TableRow
 from qt_table_types import (
-    FieldValue,
     TableColumnConfig,
     TableConfig,
     TableRowCellConfig,
     TableRowCellValue,
+    TableRowCellValueUpdatedParam,
 )
 
 ROW_INDEX_PLACEHOLDER_TOKEN = "%row_index%"
@@ -42,20 +42,24 @@ class Table(ABC):
         super().__init__()
         self._name = name
         self._groupbox_container = groupbox_container
-        self._table_config = table_config
+        self._config = table_config
 
         self._calculated_row_width_from_header_row = 0
         self._columng_group_boxes: List[QGroupBox] = self._create_header_row()
+
+        self._row_cell_configs: List[TableRowCellConfig] = (
+            self._create_row_cell_configs()
+        )
 
         # create scroll area
         self._scroll_area = QScrollArea(parent=self._groupbox_container)
         self._scroll_area.setGeometry(
             QtCore.QRect(
                 0,
-                self._table_config.header_row_config.height,
+                self._config.header_row_config.height,
                 self._groupbox_container.width(),
                 self._groupbox_container.height()
-                - self._table_config.header_row_config.height,
+                - self._config.header_row_config.height,
             )
         )
         self._scroll_area.setVerticalScrollBarPolicy(
@@ -125,9 +129,9 @@ class Table(ABC):
     def _create_header_row(self) -> List[QGroupBox]:
         columng_group_boxes: List[QGroupBox] = []
         self._calculated_row_width_from_header_row = 0
-        table_column_config_count = len(self._table_config.column_configs)
+        table_column_config_count = len(self._config.column_configs)
         for index in range(table_column_config_count):
-            table_column_config = self._table_config.column_configs[index]
+            table_column_config = self._config.column_configs[index]
             is_last_column = False
             if index != (table_column_config_count - 1):
                 is_last_column = True
@@ -162,11 +166,11 @@ class Table(ABC):
                 x_pos,
                 0,
                 table_column_config.width,
-                self._table_config.header_row_config.height,
+                self._config.header_row_config.height,
             )
         )
         css_style_text = "; ".join(
-            self._table_config.header_row_config.header_cell_css_styles
+            self._config.header_row_config.header_cell_css_styles
         )
         css_style_text = f"{css_style_text}; border: 1px solid black;"
         if is_last_column:
@@ -184,37 +188,39 @@ class Table(ABC):
                 0,
                 0,
                 table_column_config.width,
-                self._table_config.header_row_config.height,
+                self._config.header_row_config.height,
             )
         )
         column_text_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         column_text_label.setText(table_column_config.text)
 
-    def _create_empty_table_row_field_configs(self) -> 1:
-        row_field_config_list: List[TableRowCellConfig] = []
+    def _create_row_cell_configs(self) -> 1:
+        row_cell_configs: List[TableRowCellConfig] = []
         cell_index = 0
-        for column_config in self._table_config.column_configs:
-            row_field_config_list.append(
+        for column_config in self._config.column_configs:
+            row_cell_configs.append(
                 TableRowCellConfig(
                     ui_type=column_config.ui_type,
-                    cell_index=cell_index,
                     width=column_config.width,
+                    cell_index=cell_index,
                 )
             )
             cell_index = cell_index + 1
-        return row_field_config_list
+        return row_cell_configs
 
     def _create_row_index_cell_value(self, row_index: int) -> str:
         row_index_str = f"{row_index+1}"
-        if self._table_config.row_number_cell_format != "":
-            return self._table_config.row_number_cell_format.replace(
+        if self._config.row_number_cell_format != "":
+            return self._config.row_number_cell_format.replace(
                 ROW_INDEX_PLACEHOLDER_TOKEN, row_index_str
             )
         return row_index_str
 
-    def _on_value_cell_updated(self, id: str, cell_index: int, value: FieldValue):
+    def _on_value_cell_updated(
+        self, row_cell_value_updated_param: TableRowCellValueUpdatedParam
+    ):
         print("In table _on_value_cell_updated:")
-        print(id, cell_index, value)
+        print(row_cell_value_updated_param)
 
     def _on_row_selected_state_updated(self, id: str, is_selected: bool):
 
@@ -310,6 +316,16 @@ class Table(ABC):
             self._adjust_row_index_cells(start_row_index=selected_row_index)
 
             self._on_row_deleted(row_index=selected_row_index, data=data)
+
+            if self._config.select_next_row_after_row_deletion:
+                new_selected_row_index = selected_row_index
+                row_count = self.row_count
+                if new_selected_row_index == row_count:
+                    new_selected_row_index = row_count - 1
+
+                if new_selected_row_index >= 0 and new_selected_row_index < row_count:
+                    self._rows[new_selected_row_index].set_as_selected()
+
         else:
             print("No selected row index.")
 
@@ -356,14 +372,10 @@ class Table(ABC):
     def _create_row(self, row_index: int, data: int) -> TableRow:
         print(f"Creating new row with data {data}")
 
-        cell_info_list: List[TableRowCellConfig] = (
-            self._create_empty_table_row_field_configs()
-        )
-
         row = TableRow(
             width=self._calculated_row_width_from_header_row,
-            config=self._table_config.value_row_config,
-            cell_configs=cell_info_list,
+            config=self._config.value_row_config,
+            cell_configs=self._row_cell_configs,
             data=data,
         )
 
