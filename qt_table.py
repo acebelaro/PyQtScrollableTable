@@ -17,7 +17,6 @@ from qt_table_types import (
     TableConfig,
     TableRowCellConfig,
     TableRowCellValue,
-    TableRowConfig,
 )
 
 ROW_INDEX_PLACEHOLDER_TOKEN = "%row_index%"
@@ -45,7 +44,7 @@ class Table(ABC):
         self._groupbox_container = groupbox_container
         self._table_config = table_config
 
-        self._row_width = 0
+        self._calculated_row_width_from_header_row = 0
         self._columng_group_boxes: List[QGroupBox] = self._create_header_row()
 
         # create scroll area
@@ -53,10 +52,10 @@ class Table(ABC):
         self._scroll_area.setGeometry(
             QtCore.QRect(
                 0,
-                self._table_config.header_row_height,
+                self._table_config.header_row_config.height,
                 self._groupbox_container.width(),
                 self._groupbox_container.height()
-                - self._table_config.header_row_height,
+                - self._table_config.header_row_config.height,
             )
         )
         self._scroll_area.setVerticalScrollBarPolicy(
@@ -125,7 +124,7 @@ class Table(ABC):
 
     def _create_header_row(self) -> List[QGroupBox]:
         columng_group_boxes: List[QGroupBox] = []
-        self._row_width = 0
+        self._calculated_row_width_from_header_row = 0
         table_column_config_count = len(self._table_config.column_configs)
         for index in range(table_column_config_count):
             table_column_config = self._table_config.column_configs[index]
@@ -134,12 +133,17 @@ class Table(ABC):
                 is_last_column = True
             columng_group_box = self._create_header_cell_group_box(
                 table_column_config=table_column_config,
-                x_pos=self._row_width,
+                x_pos=self._calculated_row_width_from_header_row,
                 is_last_column=is_last_column,
             )
-            self._row_width = self._row_width + table_column_config.width
+            self._calculated_row_width_from_header_row = (
+                self._calculated_row_width_from_header_row + table_column_config.width
+            )
             columng_group_boxes.append(columng_group_box)
-        if self._row_width > self._groupbox_container.width():
+        if (
+            self._calculated_row_width_from_header_row
+            > self._groupbox_container.width()
+        ):
             raise ValueError(
                 f"Table '{self._name}' column header total width exceeds given group box container width!"
             )
@@ -158,10 +162,12 @@ class Table(ABC):
                 x_pos,
                 0,
                 table_column_config.width,
-                self._table_config.header_row_height,
+                self._table_config.header_row_config.height,
             )
         )
-        css_style_text = "; ".join(self._table_config.header_cell_css_styles)
+        css_style_text = "; ".join(
+            self._table_config.header_row_config.header_cell_css_styles
+        )
         css_style_text = f"{css_style_text}; border: 1px solid black;"
         if is_last_column:
             css_style_text = f"{css_style_text} border-right: none;"
@@ -178,7 +184,7 @@ class Table(ABC):
                 0,
                 0,
                 table_column_config.width,
-                self._table_config.header_row_height,
+                self._table_config.header_row_config.height,
             )
         )
         column_text_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
@@ -211,8 +217,6 @@ class Table(ABC):
         print(id, cell_index, value)
 
     def _on_row_selected_state_updated(self, id: str, is_selected: bool):
-        print("In table _on_row_selected_state_updated:")
-        print(id, is_selected)
 
         if is_selected:
             for row in self._rows:
@@ -220,8 +224,7 @@ class Table(ABC):
                     row.clear_selected_state()
 
     def _on_row_double_clicked(self, id: str):
-        print("In table _on_row_double_clicked:")
-        print(id)
+        pass
 
     def _get_row_index(self, row: TableRow) -> int:
         row_index = 0
@@ -358,11 +361,8 @@ class Table(ABC):
         )
 
         row = TableRow(
-            config=TableRowConfig(
-                width=self._row_width,
-                height=self._table_config.value_row_height,
-                selected_row_color_css_value=self._table_config.selected_row_color_css_value,
-            ),
+            width=self._calculated_row_width_from_header_row,
+            config=self._table_config.value_row_config,
             cell_configs=cell_info_list,
             data=data,
         )

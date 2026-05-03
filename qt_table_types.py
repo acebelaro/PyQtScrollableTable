@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, List, NamedTuple, Optional
+from typing import Any, Callable, List, NamedTuple, Optional
 
 from PyQt6.QtWidgets import QPushButton
 
@@ -9,12 +9,6 @@ class TableCellUiType(Enum):
     EDITABLE_TEXT = 1
     READONLY_TEXT = 2
     CHECKBOX = 3
-
-
-class TableColumnConfig(NamedTuple):
-    ui_type: TableCellUiType
-    text: str
-    width: int
 
 
 class TableRowCellConfig(NamedTuple):
@@ -29,27 +23,59 @@ class TableButtonControls(NamedTuple):
     move_down_selected: Optional[QPushButton] = None
 
 
-class TableConfig(NamedTuple):
-    column_configs: List[TableColumnConfig]
-    header_row_height: int
-    value_row_height: int
-    header_cell_css_styles: List[str]
-    selected_row_color_css_value: str
-    row_number_cell_format: str = ""
-    button_controls: Optional[TableButtonControls] = None
-
-
 class FieldValue(NamedTuple):
     row_data: Any
     value: str | bool
 
 
-class TableRowConfig(NamedTuple):
-    width: int
-    height: int
-    selected_row_color_css_value: str
+class RowInfo(NamedTuple):
+    row_index: int
+    data: Any
 
 
 class TableRowCellValue(NamedTuple):
     cell_index: int
     value: str | bool
+
+
+class BeforeUpdateConfirmers(NamedTuple):
+    confirm_row_addition: Optional[Callable[[RowInfo], bool]] = None
+    confirm_row_deletion: Optional[Callable[[RowInfo], bool]] = None
+    confirm_row_move_up: Optional[Callable[[RowInfo], bool]] = None
+    confirm_row_move_down: Optional[Callable[[RowInfo], bool]] = None
+
+
+class TableColumnConfig(NamedTuple):
+    ui_type: TableCellUiType
+    text: str
+    width: int
+
+
+class TableHeaderRowConfig(NamedTuple):
+    height: int
+    header_cell_css_styles: List[str]
+
+
+class TableElemClassStyle(NamedTuple):
+    class_name: str
+    styles: List[str]
+
+
+class RowClassNameDeciderParam(NamedTuple):
+    data: Any
+    is_selected: bool
+
+
+class TableValueRowConfig(NamedTuple):
+    height: int
+    class_styles: Optional[List[TableElemClassStyle]] = None
+    row_class_name_decider: Optional[Callable[[RowClassNameDeciderParam], str]] = None
+
+
+class TableConfig(NamedTuple):
+    header_row_config: TableHeaderRowConfig
+    column_configs: List[TableColumnConfig]
+    value_row_config: TableValueRowConfig
+    row_number_cell_format: str = ""
+    button_controls: Optional[TableButtonControls] = None
+    before_update_confirmers: Optional[BeforeUpdateConfirmers] = None

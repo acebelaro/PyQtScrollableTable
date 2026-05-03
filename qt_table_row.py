@@ -1,4 +1,3 @@
-from abc import abstractmethod
 from typing import Any, List, Optional
 from PyQt6 import QtCore
 from PyQt6.QtWidgets import (
@@ -17,15 +16,14 @@ from qt_table_row_cell import (
 )
 from qt_table_types import (
     FieldValue,
+    RowClassNameDeciderParam,
     TableCellUiType,
     TableRowCellConfig,
     TableRowCellValue,
-    TableRowConfig,
+    TableValueRowConfig,
 )
 
-_TABLE_ROW_GROUPBOX_NAME = "QtTableRowGroupBox"
 _TABLE_ROW_VALUE_CELL_GROUPBOX_NAME = "QtTableRowValueCellGroupBox"
-_TABLE_ROW_SELECTED_CLASS_VALUE = "selected-row"
 
 
 class TableRow(QWidget):
@@ -38,13 +36,16 @@ class TableRow(QWidget):
 
     def __init__(
         self,
-        config: TableRowConfig,
+        width: int,
+        # height: int,
+        config: TableValueRowConfig,
         cell_configs: List[TableRowCellConfig],
         id: str = "",
         data: Optional[Any] = None,
     ):
         super().__init__()
         self._config = config
+        self._row_class_name_decider = self._config.row_class_name_decider
         self._cell_configs = cell_configs
         self._id = id
         self._data = data
@@ -54,14 +55,15 @@ class TableRow(QWidget):
         if self._id == "":
             self._id = str(uuid.uuid4())
 
+        self._row_css_style_text = self._create_css_style_text()
         self._row_group_box = QGroupBox(parent=self)
-        self._row_group_box.setGeometry(QtCore.QRect(0, 0, config.width, config.height))
+        self._row_group_box.setGeometry(QtCore.QRect(0, 0, width, self._config.height))
         self._row_group_box.setTitle("")
         self._update_property_due_to_selected_state()
 
         self._create_row_fields_ui(row_group_box=self._row_group_box)
 
-        self.setFixedHeight(config.height)
+        self.setFixedHeight(self._config.height)
 
         self._on_update_selected_state.connect(
             self._update_property_due_to_selected_state
@@ -115,9 +117,21 @@ class TableRow(QWidget):
                     f"Cannot find value for cell widget index '{cell_widget.cell_index}'"
                 )
 
-    @abstractmethod
-    def _create_ui(self, row_group_box: QGroupBox) -> None:
-        raise NotImplementedError()
+    def _create_css_style_text(self) -> str:
+        row_css_style_text = ""
+        class_styles = self._config.class_styles
+        if class_styles and len(class_styles) > 0:
+            for class_style in class_styles:
+                css_style_text = ""
+                for style in class_style.styles:
+                    css_style_text = f"""{css_style_text}
+    {style}
+"""
+                row_css_style_text = f"""{row_css_style_text}QGroupBox.{class_style.class_name} {{
+{css_style_text}
+}}
+    """
+        return row_css_style_text
 
     def _get_row_index_cell_widget(self) -> Optional[TableRowCellValueWidget]:
         return next(
@@ -234,23 +248,14 @@ class TableRow(QWidget):
     def _update_property_due_to_selected_state(self):
         current_class_value = self._row_group_box.property("class")
         new_class_value = ""
-        if self._is_selected:
-            new_class_value = _TABLE_ROW_SELECTED_CLASS_VALUE
-        else:
-            new_class_value = ""
+
+        if self._row_class_name_decider:
+            row_class_name_decider_param = RowClassNameDeciderParam(
+                data=self._data,
+                is_selected=self._is_selected,
+            )
+            new_class_value = self._row_class_name_decider(row_class_name_decider_param)
 
         if current_class_value != new_class_value:
             self._row_group_box.setProperty("class", new_class_value)
-            css_style_text = (
-                f"QGroupBox#{_TABLE_ROW_GROUPBOX_NAME}{{ border: 1px solid black; }}"
-            )
-            self._row_group_box.setStyleSheet(css_style_text)
-            self._row_group_box.setObjectName(_TABLE_ROW_GROUPBOX_NAME)
-            css_style_text = f"""QGroupBox#{_TABLE_ROW_GROUPBOX_NAME}{{
-        border: 1px solid black;
-    }}
-    .selected-row {{
-        background-color: {self._config.selected_row_color_css_value};
-    }}"""
-            self._row_group_box.setStyleSheet(css_style_text)
-            self.on_row_selected_state_updated.emit(self._id, self._is_selected)
+            self._row_group_box.setStyleSheet(self._row_css_style_text)
