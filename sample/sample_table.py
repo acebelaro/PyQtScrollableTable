@@ -1,14 +1,12 @@
 from typing import List
 from PyQt6.QtWidgets import QGroupBox
 
+from qt_table_types import TableButtonControls, TableCellUiType
 from qt_table import (
     ROW_INDEX_PLACEHOLDER_TOKEN,
     Table,
-    TableButtonControls,
-    TableCellUiType,
     TableColumnConfig,
     TableConfig,
-    TableRowCellConfig,
     TableRowCellValue,
 )
 
@@ -56,17 +54,6 @@ class SampleTable(Table):
                 button_controls=button_controls,
             ),
         )
-
-    def _populate_cell_value(
-        self,
-        row_index: int,
-        data: int,
-        cell_info_list: List[TableRowCellConfig],
-    ):
-        cell_info_list[0].value = self._create_row_index_cell_value(row_index=row_index)
-        cell_info_list[1].value = True
-        cell_info_list[2].value = f"Test Name for {data}"
-        cell_info_list[3].value = f"{data}"
 
     def _create_row_cell_values(
         self,

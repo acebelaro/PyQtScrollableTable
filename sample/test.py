@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow
 
 sys.path.append(Path(__file__).parent.parent.as_posix())
 
-from qt_table import TableButtonControls
+from qt_table_types import TableButtonControls
 from sample.sample_main import Ui_SampleMain
 from sample.sample_table import SampleTable
 
