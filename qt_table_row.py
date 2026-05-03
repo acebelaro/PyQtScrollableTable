@@ -89,6 +89,9 @@ class TableRow(QWidget):
     def is_selected(self) -> bool:
         return self._is_selected
 
+    def set_data(self, data: Any):
+        self._data = data
+
     def set_as_selected(self):
         self._is_selected = True
         self._update_property_due_to_selected_state()
@@ -122,6 +125,7 @@ class TableRow(QWidget):
                 raise ValueError(
                     f"Cannot find value for cell widget index '{cell_widget.cell_index}'"
                 )
+        self._update_property_due_to_selected_state()
 
     def _create_css_style_text(self) -> str:
         row_css_style_text = ""

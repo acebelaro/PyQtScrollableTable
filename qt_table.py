@@ -138,6 +138,7 @@ class Table(ABC):
 
     def update_row_at_index(self, row_index: int, data: Any):
         if row_index < self.row_count:
+            self._rows[row_index].set_data(data=data)
             cell_values = self._create_row_cell_values(row_index=row_index, data=data)
             self._rows[row_index].set_cell_values(cell_values=cell_values)
 
@@ -418,17 +419,14 @@ class Table(ABC):
 
     def _create_row(self, row_index: int, data: int) -> TableRow:
         print(f"Creating new row with data {data}")
-
         row = TableRow(
             width=self._calculated_row_width_from_header_row,
             config=self._config.value_row_config,
             cell_configs=self._row_cell_configs,
             data=data,
         )
-
         row_cell_values = self._create_row_cell_values(row_index=row_index, data=data)
         row.set_cell_values(cell_values=row_cell_values)
-
         return row
 
     @abstractmethod
