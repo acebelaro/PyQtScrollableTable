@@ -234,28 +234,36 @@ class TableRow(QWidget):
         return row_cell_widget
 
     def _checkbox_cell_checked_updated(self, cell_index: int, checked: bool):
-        cell_value = RowCellValue(
-            row_data=self.data,
-            value=checked,
-        )
+        new_cell_values: List[TableRowCellValue] = []
+        for cell_widget in self._cell_widgets:
+            cell_value = TableRowCellValue(
+                cell_index=cell_widget.cell_index,
+                value=cell_widget.get_value(),
+            )
+            new_cell_values.append(cell_value)
         self.on_value_cell_updated.emit(
             TableRowCellValueUpdatedParam(
                 row_id=self._id,
-                cell_index=cell_index,
-                cell_value=cell_value,
+                current_row_data=self._data,
+                updated_cell_index=cell_index,
+                new_cell_values=new_cell_values,
             )
         )
 
     def _textbox_cell_text_updated(self, cell_index: int, text: str):
-        cell_value = RowCellValue(
-            row_data=self.data,
-            value=text,
-        )
+        new_cell_values: List[TableRowCellValue] = []
+        for cell_widget in self._cell_widgets:
+            cell_value = TableRowCellValue(
+                cell_index=cell_widget.cell_index,
+                value=cell_widget.get_value(),
+            )
+            new_cell_values.append(cell_value)
         self.on_value_cell_updated.emit(
             TableRowCellValueUpdatedParam(
                 row_id=self._id,
-                cell_index=cell_index,
-                cell_value=cell_value,
+                current_row_data=self._data,
+                updated_cell_index=cell_index,
+                new_cell_values=new_cell_values,
             )
         )
 

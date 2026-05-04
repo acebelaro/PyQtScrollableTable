@@ -6,7 +6,7 @@ sys.path.append(Path(__file__).parent.parent.as_posix())
 
 from qt_table_types import TableButtonControls
 from sample.sample_main import Ui_SampleMain
-from sample.sample_table import SampleTable
+from sample.sample_table import SampleData, SampleTable
 
 
 class MainWindow(QMainWindow):
@@ -32,13 +32,16 @@ class MainWindow(QMainWindow):
         self._btn_add_row.clicked.connect(self._add_row)
 
     def _add_row(self):
+        data = SampleData(
+            enabled=True,
+            name=f"Test for {self._data_index}",
+            value=self._data_index,
+        )
         selected_row_index = self._table.selected_row_index
         if selected_row_index == -1:
-            self._table.add_new_row(data=self._data_index)
+            self._table.add_new_row(data=data)
         else:
-            self._table.add_row_at_index(
-                row_index=selected_row_index + 1, data=self._data_index
-            )
+            self._table.add_row_at_index(row_index=selected_row_index + 1, data=data)
         self._data_index = self._data_index + 1
 
 

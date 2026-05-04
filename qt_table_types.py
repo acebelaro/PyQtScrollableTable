@@ -25,7 +25,7 @@ class TableButtonControls(NamedTuple):
 
 class RowCellValue(NamedTuple):
     row_data: Any
-    value: str | bool
+    value: str | bool | int
 
 
 class RowInfo(NamedTuple):
@@ -35,7 +35,7 @@ class RowInfo(NamedTuple):
 
 class TableRowCellValue(NamedTuple):
     cell_index: int
-    value: str | bool
+    value: str | bool | int
 
 
 class BeforeUpdateConfirmers(NamedTuple):
@@ -89,5 +89,6 @@ class TableConfig(NamedTuple):
 
 class TableRowCellValueUpdatedParam(NamedTuple):
     row_id: str
-    cell_index: int
-    cell_value: RowCellValue
+    current_row_data: Any
+    updated_cell_index: int
+    new_cell_values: List[TableRowCellValue]

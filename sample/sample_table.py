@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, NamedTuple
 from PyQt6.QtWidgets import QGroupBox
 
 from qt_table_types import (
@@ -19,6 +19,12 @@ from qt_table import (
     TableConfig,
     TableRowCellValue,
 )
+
+
+class SampleData(NamedTuple):
+    enabled: bool
+    name: str
+    value: int
 
 
 class SampleTable(Table):
@@ -103,7 +109,7 @@ class SampleTable(Table):
     def _create_row_cell_values(
         self,
         row_index: int,
-        data: int,
+        data: SampleData,
     ) -> List[TableRowCellValue]:
         return [
             TableRowCellValue(
@@ -112,17 +118,27 @@ class SampleTable(Table):
             ),
             TableRowCellValue(
                 cell_index=1,
-                value=True,
+                value=data.enabled,
             ),
             TableRowCellValue(
                 cell_index=2,
-                value=f"Test Name for {data}",
+                value=data.name,
             ),
             TableRowCellValue(
                 cell_index=3,
-                value=f"{data}",
+                value=f"{data.value}",
             ),
         ]
+
+    def _create_data_from_row_cell_values(
+        self,
+        cell_values: List[TableRowCellValue],
+    ) -> SampleData:
+        return SampleData(
+            enabled=cell_values[1].value,
+            name=cell_values[2].value,
+            value=cell_values[3].value,
+        )
 
     def _on_row_deleted(self, row_index: int, data: int) -> None:
         print(f"Deleted row index {row_index} with data {data}")
