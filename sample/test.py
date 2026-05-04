@@ -32,7 +32,13 @@ class MainWindow(QMainWindow):
         self._btn_add_row.clicked.connect(self._add_row)
 
     def _add_row(self):
-        self._table.add_new_row(data=self._data_index)
+        selected_row_index = self._table.selected_row_index
+        if selected_row_index == -1:
+            self._table.add_new_row(data=self._data_index)
+        else:
+            self._table.add_row_at_index(
+                row_index=selected_row_index + 1, data=self._data_index
+            )
         self._data_index = self._data_index + 1
 
 

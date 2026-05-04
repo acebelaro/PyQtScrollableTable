@@ -9,6 +9,7 @@ from qt_table_types import (
     TableCellUiType,
     TableElemClassStyle,
     TableHeaderRowConfig,
+    TableShortcutKeys,
     TableValueRowConfig,
 )
 from qt_table import (
@@ -92,6 +93,9 @@ class SampleTable(Table):
                     confirm_row_addition=self._confirm_row_addition,
                     confirm_row_deletion=self._confirm_row_deletion,
                     confirm_row_swap=self._confirm_row_swap,
+                ),
+                shortcut_keys=TableShortcutKeys(
+                    ctrl_z_y_undo_redo=True,
                 ),
             ),
         )

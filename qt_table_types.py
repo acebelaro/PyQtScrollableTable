@@ -71,6 +71,10 @@ class TableValueRowConfig(NamedTuple):
     row_class_name_decider: Optional[Callable[[RowClassNameDeciderParam], str]] = None
 
 
+class TableShortcutKeys(NamedTuple):
+    ctrl_z_y_undo_redo: Optional[bool] = False
+
+
 class TableConfig(NamedTuple):
     header_row_config: TableHeaderRowConfig
     column_configs: List[TableColumnConfig]
@@ -78,7 +82,9 @@ class TableConfig(NamedTuple):
     row_number_cell_format: str = ""
     button_controls: Optional[TableButtonControls] = None
     before_update_confirmers: Optional[BeforeUpdateConfirmers] = None
+    select_new_row_added: bool = True
     select_next_row_after_row_deletion: bool = True
+    shortcut_keys: Optional[TableShortcutKeys] = None
 
 
 class TableRowCellValueUpdatedParam(NamedTuple):
