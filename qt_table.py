@@ -7,14 +7,13 @@ from PyQt6.QtWidgets import (
     QWidget,
     QGroupBox,
     QScrollArea,
-    QLabel,
     QVBoxLayout,
 )
 from PyQt6.QtCore import pyqtSignal
 
+from qt_table_header_row import TableHeaderRow
 from qt_table_types import (
     RowInfo,
-    TableColumnConfig,
     TableConfig,
     TableRowCellConfig,
     TableRowCellValue,
@@ -24,8 +23,6 @@ from qt_table_row import TableRow
 from qt_table_event import TableEvent, TableEventCollection, TableEventType
 
 ROW_INDEX_PLACEHOLDER_TOKEN = "%row_index%"
-
-_TABLE_HEADER_CELL_GROUPBOX_NAME = "QtTableHeaderCellGroupBox"
 
 
 class Table(ABC):
@@ -44,8 +41,14 @@ class Table(ABC):
         self._config = table_config
         self._before_update_confirmers = table_config.before_update_confirmers
 
-        self._calculated_row_width_from_header_row = 0
-        self._columng_group_boxes: List[QGroupBox] = self._create_header_row()
+        self._header_row = TableHeaderRow(
+            name=name,
+            header_row_config=table_config.header_row_config,
+            column_configs=table_config.column_configs,
+            groupbox_container=groupbox_container,
+        )
+        self._calculated_row_width_from_header_row = self._header_row.create()
+
         self._event_collection = TableEventCollection()
         self._row_cell_configs: List[TableRowCellConfig] = (
             self._create_row_cell_configs()
@@ -172,74 +175,6 @@ class Table(ABC):
             data=row.data,
         )
         return row_added_event
-
-    def _create_header_row(self) -> List[QGroupBox]:
-        columng_group_boxes: List[QGroupBox] = []
-        self._calculated_row_width_from_header_row = 0
-        table_column_config_count = len(self._config.column_configs)
-        for index in range(table_column_config_count):
-            table_column_config = self._config.column_configs[index]
-            is_last_column = False
-            if index != (table_column_config_count - 1):
-                is_last_column = True
-            columng_group_box = self._create_header_cell_group_box(
-                table_column_config=table_column_config,
-                x_pos=self._calculated_row_width_from_header_row,
-                is_last_column=is_last_column,
-            )
-            self._calculated_row_width_from_header_row = (
-                self._calculated_row_width_from_header_row + table_column_config.width
-            )
-            columng_group_boxes.append(columng_group_box)
-        if (
-            self._calculated_row_width_from_header_row
-            > self._groupbox_container.width()
-        ):
-            raise ValueError(
-                f"Table '{self._name}' column header total width exceeds given group box container width!"
-            )
-        return columng_group_boxes
-
-    def _create_header_cell_group_box(
-        self,
-        table_column_config: TableColumnConfig,
-        x_pos: int,
-        is_last_column: bool,
-    ) -> QGroupBox:
-
-        columng_group_box = QGroupBox(parent=self._groupbox_container)
-        columng_group_box.setGeometry(
-            QtCore.QRect(
-                x_pos,
-                0,
-                table_column_config.width,
-                self._config.header_row_config.height,
-            )
-        )
-        css_style_text = "; ".join(
-            self._config.header_row_config.header_cell_css_styles
-        )
-        css_style_text = f"{css_style_text}; border: 1px solid black;"
-        if is_last_column:
-            css_style_text = f"{css_style_text} border-right: none;"
-        css_style_text = (
-            f"QGroupBox#{_TABLE_HEADER_CELL_GROUPBOX_NAME}{{ {css_style_text} }}"
-        )
-        columng_group_box.setObjectName(_TABLE_HEADER_CELL_GROUPBOX_NAME)
-        columng_group_box.setStyleSheet(css_style_text)
-        columng_group_box.setTitle("")
-
-        column_text_label = QLabel(parent=columng_group_box)
-        column_text_label.setGeometry(
-            QtCore.QRect(
-                0,
-                0,
-                table_column_config.width,
-                self._config.header_row_config.height,
-            )
-        )
-        column_text_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        column_text_label.setText(table_column_config.text)
 
     def _create_row_cell_configs(self) -> 1:
         row_cell_configs: List[TableRowCellConfig] = []
