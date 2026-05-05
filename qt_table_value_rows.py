@@ -1,23 +1,14 @@
-from abc import ABC, abstractmethod
-from typing import Any, Callable, List, Optional
+from typing import List, Optional
 
 from PyQt6 import QtCore
-from PyQt6.QtGui import QShortcut, QKeySequence
 from PyQt6.QtWidgets import (
     QWidget,
     QGroupBox,
     QScrollArea,
     QVBoxLayout,
 )
-from PyQt6.QtCore import pyqtSignal
-
-from qt_table_header_row import TableHeaderRow
 from qt_table_types import (
     RowInfo,
-    TableConfig,
-    TableRowCellConfig,
-    TableRowCellValue,
-    TableRowCellValueUpdatedParam,
 )
 from qt_table_row import TableRow
 
@@ -30,22 +21,19 @@ class TableValueRows:
         self,
         groupbox_container: QGroupBox,
         y_pos: int,
-        height: int,
         select_new_row_added: bool,
-        confirm_row_swap: Optional[Callable[[RowInfo, RowInfo], bool]] = None,
     ):
         self._groupbox_container = groupbox_container
         self._select_new_row_added = select_new_row_added
-        self._confirm_row_swap = confirm_row_swap
 
         # create scroll area
         self._scroll_area = QScrollArea(parent=self._groupbox_container)
         self._scroll_area.setGeometry(
             QtCore.QRect(
                 0,
-                y_pos,  # self._config.header_row_config.height,
+                y_pos,
                 self._groupbox_container.width(),
-                height,  # self._groupbox_container.height() - self._config.header_row_config.height,
+                self._groupbox_container.height() - y_pos,
             )
         )
         self._scroll_area.setVerticalScrollBarPolicy(
@@ -68,10 +56,6 @@ class TableValueRows:
         self._scroll_area_content.setLayout(self._table_layout)
 
         self._rows: List[TableRow] = []
-
-    @property
-    def rows(self) -> List[TableRow]:
-        return self._rows
 
     @property
     def row_count(self) -> int:
@@ -133,33 +117,18 @@ class TableValueRows:
             self.is_valid_row_index(row_index=lower_row_index):
         # fmt: on
 
-            proceed_swap = True
-            upper_row = self._rows[upper_row_index]
-            lower_row = self._rows[lower_row_index]
+            deleted_row = self._rows[lower_row_index]
+            del self._rows[lower_row_index]
+            self._table_layout.removeWidget(deleted_row)
 
-            if self._confirm_row_swap and self._confirm_row_swap:
-                upper_row_info = RowInfo(
-                    row_index=upper_row_index,
-                    data=upper_row.data,
-                )
-                lower_row_info = RowInfo(
-                    row_index=lower_row_index,
-                    data=lower_row.data,
-                )
-                proceed_swap = self._confirm_row_swap(
-                    upper_row_info=upper_row_info,
-                    lower_row_info=lower_row_info,
-                )
-            if proceed_swap:
-                deleted_row = self._rows[lower_row_index]
-                del self._rows[lower_row_index]
-                self._table_layout.removeWidget(deleted_row)
-
-                self._rows.insert(upper_row_index, deleted_row)
-                self._table_layout.insertWidget(upper_row_index, deleted_row)
-                is_swapped = True
+            self._rows.insert(upper_row_index, deleted_row)
+            self._table_layout.insertWidget(upper_row_index, deleted_row)
+            is_swapped = True
 
         return is_swapped
+
+    def get_row_by_id(self, row_id) -> Optional[TableRow]:
+        return next((r for r in self._rows if r.id == row_id), None)
 
     def get_row_index_by_id(self, row_id: str) -> int:
         row_index = 0
@@ -168,6 +137,11 @@ class TableValueRows:
                 return row_index
             row_index = row_index + 1
         return -1
+
+    def get_row_at_index(self, row_index: int) -> Optional[TableRow]:
+        if self.is_valid_row_index(row_index=row_index):
+            return self._rows[row_index]
+        return None
 
     def get_selected_row_info(self) -> Optional[RowInfo]:
         selected_row = self.selected_row
@@ -179,3 +153,20 @@ class TableValueRows:
                     data=selected_row.data,
                 )
         return None
+
+    def set_selected_row(self, row_index: int):
+        if self.is_valid_row_index(row_index=row_index):
+            self._rows[row_index].set_as_selected()
+
+    def update_rows_selected_states_due_to_toggled_row(
+        self, toggled_row_id: str, is_selected: bool
+    ):
+        if is_selected:
+            for row in self._rows:
+                if row.id != toggled_row_id:
+                    row.clear_selected_state()
+
+    def set_row_index_cell_value(self, row_index: int, row_index_cell_value: str):
+        self._rows[row_index].set_row_index_cell_value(
+            row_index_cell_value=row_index_cell_value
+        )

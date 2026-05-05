@@ -1,13 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional
 
-from PyQt6 import QtCore
 from PyQt6.QtGui import QShortcut, QKeySequence
 from PyQt6.QtWidgets import (
-    QWidget,
     QGroupBox,
-    QScrollArea,
-    QVBoxLayout,
 )
 from PyQt6.QtCore import pyqtSignal
 
@@ -21,6 +17,7 @@ from qt_table_types import (
 )
 from qt_table_row import TableRow
 from qt_table_event import TableEvent, TableEventCollection, TableEventType
+from qt_table_value_rows import TableValueRows
 
 ROW_INDEX_PLACEHOLDER_TOKEN = "%row_index%"
 
@@ -49,40 +46,16 @@ class Table(ABC):
         )
         self._calculated_row_width_from_header_row = self._header_row.create()
 
+        self._table_value_rows = TableValueRows(
+            groupbox_container=groupbox_container,
+            y_pos=self._config.header_row_config.height,
+            select_new_row_added=self._config.select_new_row_added,
+        )
+
         self._event_collection = TableEventCollection()
         self._row_cell_configs: List[TableRowCellConfig] = (
             self._create_row_cell_configs()
         )
-
-        # create scroll area
-        self._scroll_area = QScrollArea(parent=self._groupbox_container)
-        self._scroll_area.setGeometry(
-            QtCore.QRect(
-                0,
-                self._config.header_row_config.height,
-                self._groupbox_container.width(),
-                self._groupbox_container.height()
-                - self._config.header_row_config.height,
-            )
-        )
-        self._scroll_area.setVerticalScrollBarPolicy(
-            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOn
-        )
-        self._scroll_area.setHorizontalScrollBarPolicy(
-            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        self._scroll_area.setWidgetResizable(True)
-        self._scroll_area.setObjectName("scrollAreaActionList")
-
-        self._scroll_area_content = QWidget()
-        self._scroll_area_content.setGeometry(self._scroll_area.rect())
-        self._scroll_area.setWidget(self._scroll_area_content)
-
-        self._table_layout = QVBoxLayout()
-        self._table_layout.addStretch()
-        self._table_layout.setContentsMargins(0, 0, 0, 0)
-        self._table_layout.setSpacing(0)
-        self._scroll_area_content.setLayout(self._table_layout)
 
         if table_config.button_controls:
             button_control = table_config.button_controls
@@ -106,27 +79,17 @@ class Table(ABC):
                 )
                 redo_shortcut.activated.connect(self._redo)
 
-        self._rows: List[TableRow] = []
-
-    @property
-    def rows(self) -> List[TableRow]:
-        return self._rows
-
     @property
     def row_count(self) -> int:
-        return len(self._rows)
+        return self._table_value_rows.row_count
 
     @property
     def selected_row(self) -> Optional[TableRow]:
-        return next((b for b in self._rows if b.is_selected), None)
+        return self._table_value_rows.selected_row
 
     @property
     def selected_row_index(self) -> int:
-        selected_row = self.selected_row
-        if selected_row:
-            selected_row_id = selected_row.id
-            return self._get_row_index_by_id(row_id=selected_row_id)
-        return -1
+        return self._table_value_rows.selected_row_index
 
     def add_new_row(self, data: Any):
         """Create and add new row at the bottom."""
@@ -146,35 +109,26 @@ class Table(ABC):
                 )
         if proceed_to_add:
             new_row = self._create_row(row_index=row_index, data=data)
-            row_added_event = self._add_row_at_index(row_index=row_index, row=new_row)
+            self._table_value_rows.add_row_at_index(row_index=row_index, row=new_row)
+            row_added_event = TableEvent(
+                type=TableEventType.ROW_ADDED,
+                row_index=row_index,
+                data=data,
+            )
             if row_added_event:
                 self._event_collection.add_undo_event(event=row_added_event)
 
-    def update_row_at_index(self, row_index: int, data: Any):
-        if row_index < self.row_count:
-            self._rows[row_index].set_data(data=data)
-            cell_values = self._create_row_cell_values(row_index=row_index, data=data)
-            self._rows[row_index].set_cell_values(cell_values=cell_values)
-
-    def _add_row_at_index(
-        self, row_index: int, row: TableRow, skip_select: bool = False
-    ) -> Optional[TableEvent]:
-        print(f"Adding at row {row_index}")
-        self._rows.insert(row_index, row)
-        self._table_layout.insertWidget(row_index, row)
-
-        if self._config.select_new_row_added and not skip_select:
-            selected_row = self.selected_row
-            if selected_row:
-                selected_row.clear_selected_state()
-            row.set_as_selected()
-
-        row_added_event = TableEvent(
-            type=TableEventType.ROW_ADDED,
+    def update_row_at_index(self, row_index: int, data: Any) -> TableRow:
+        # replace with new row to avoid on update triggers
+        # that can register revert event
+        self._delete_row_at_index(row_index=row_index)
+        new_row = self._create_row(row_index=row_index, data=data)
+        self._table_value_rows.add_row_at_index(
             row_index=row_index,
-            data=row.data,
+            row=new_row,
+            skip_select=True,
         )
-        return row_added_event
+        return new_row
 
     def _create_row_cell_configs(self) -> 1:
         row_cell_configs: List[TableRowCellConfig] = []
@@ -201,14 +155,14 @@ class Table(ABC):
     def _on_value_cell_updated(
         self, row_cell_value_updated_param: TableRowCellValueUpdatedParam
     ):
-        updated_row = next(
-            (r for r in self._rows if r.id == row_cell_value_updated_param.row_id), None
+        updated_row = self._table_value_rows.get_row_by_id(
+            row_id=row_cell_value_updated_param.row_id
         )
         if updated_row:
             new_data = self._create_data_from_row_cell_values(
                 cell_values=row_cell_value_updated_param.new_cell_values
             )
-            row_index = self._get_row_index_by_id(
+            row_index = self._table_value_rows.get_row_index_by_id(
                 row_id=row_cell_value_updated_param.row_id
             )
             if row_index != -1:
@@ -221,21 +175,12 @@ class Table(ABC):
             updated_row.set_data(data=new_data)
 
     def _on_row_selected_state_updated(self, id: str, is_selected: bool):
-        if is_selected:
-            for row in self._rows:
-                if row.id != id:
-                    row.clear_selected_state()
+        self._table_value_rows.update_rows_selected_states_due_to_toggled_row(
+            toggled_row_id=id, is_selected=is_selected
+        )
 
     def _on_row_double_clicked(self, id: str):
         pass
-
-    def _get_row_index_by_id(self, row_id: str) -> int:
-        row_index = 0
-        while row_index < self.row_count:
-            if row_id == self._rows[row_index].id:
-                return row_index
-            row_index = row_index + 1
-        return -1
 
     def _adjust_row_index_cells(self, start_row_index: int = 0):
         row_count = self.row_count
@@ -244,21 +189,11 @@ class Table(ABC):
             row_index_cell_value = self._create_row_index_cell_value(
                 row_index=row_index
             )
-            self._rows[row_index].set_row_index_cell_value(
-                row_index_cell_value=row_index_cell_value
+            self._table_value_rows.set_row_index_cell_value(
+                row_index=row_index,
+                row_index_cell_value=row_index_cell_value,
             )
             row_index = row_index + 1
-
-    def _get_selected_row_info(self) -> Optional[RowInfo]:
-        selected_row = self.selected_row
-        if selected_row:
-            selected_row_index = self._get_row_index_by_id(row_id=selected_row.id)
-            if selected_row_index != -1:
-                return RowInfo(
-                    row_index=selected_row_index,
-                    data=selected_row.data,
-                )
-        return None
 
     def _swap_row_index(
         self,
@@ -266,13 +201,14 @@ class Table(ABC):
         lower_row_index: int,
     ) -> bool:
         proceed_swap = True
-        upper_row = self._rows[upper_row_index]
-        lower_row = self._rows[lower_row_index]
 
         if (
             self._before_update_confirmers
             and self._before_update_confirmers.confirm_row_swap
         ):
+            upper_row = self._table_value_rows.get_row_at_index(upper_row_index)
+            lower_row = self._table_value_rows.get_row_at_index(lower_row_index)
+
             upper_row_info = RowInfo(
                 row_index=upper_row_index,
                 data=upper_row.data,
@@ -285,17 +221,14 @@ class Table(ABC):
                 upper_row_info=upper_row_info,
                 lower_row_info=lower_row_info,
             )
+
         if proceed_swap:
-            deleted_row = self._rows[lower_row_index]
-            del self._rows[lower_row_index]
-            self._table_layout.removeWidget(deleted_row)
+            self._table_value_rows.swap_row_index(
+                upper_row_index=upper_row_index,
+                lower_row_index=lower_row_index,
+            )
 
-            self._rows.insert(upper_row_index, deleted_row)
-            self._table_layout.insertWidget(upper_row_index, deleted_row)
-
-            print("Update ")
-            for row in self._rows:
-                print(row.data)
+            self._adjust_row_index_cells(start_row_index=upper_row_index)
 
             self._on_rows_swapped(
                 lower_row_index=lower_row_index,
@@ -304,7 +237,7 @@ class Table(ABC):
         return proceed_swap
 
     def _delete_selected(self):
-        selected_row_info = self._get_selected_row_info()
+        selected_row_info = self._table_value_rows.get_selected_row_info()
         if selected_row_info:
             proceed_to_delete = True
             confirm_row_deletion = self._before_update_confirmers.confirm_row_deletion
@@ -326,12 +259,14 @@ class Table(ABC):
                             new_selected_row_index >= 0
                             and new_selected_row_index < row_count
                         ):
-                            self._rows[new_selected_row_index].set_as_selected()
+                            self._table_value_rows.set_selected_row(
+                                row_index=new_selected_row_index
+                            )
         else:
             print("No selected row index.")
 
     def _move_up_selected(self):
-        selected_row_info = self._get_selected_row_info()
+        selected_row_info = self._table_value_rows.get_selected_row_info()
         if selected_row_info:
             upper_row_index = selected_row_info.row_index - 1
             if upper_row_index >= 0:
@@ -350,7 +285,7 @@ class Table(ABC):
                 print("Nowhere to move up")
 
     def _move_down_selected(self):
-        selected_row_info = self._get_selected_row_info()
+        selected_row_info = self._table_value_rows.get_selected_row_info()
         if selected_row_info:
             lower_row_index = selected_row_info.row_index + 1
             if lower_row_index < self.row_count:
@@ -387,21 +322,17 @@ class Table(ABC):
 
     def _delete_row_at_index(self, row_index: int) -> Optional[TableEvent]:
         table_event: Optional[TableEvent] = None
-        if row_index >= 0 and row_index < self.row_count:
-            row = self._rows[row_index]
-            data = self._rows[row_index].data
-            del self._rows[row_index]
-            self._table_layout.removeWidget(row)
-            row.setParent(None)
-            row.deleteLater()
-
+        deleted_row_info = self._table_value_rows.delete_row_at_index(
+            row_index=row_index
+        )
+        if deleted_row_info:
             table_event = TableEvent(
                 type=TableEventType.ROW_DELETED,
                 row_index=row_index,
-                data=row.data,
+                data=deleted_row_info.data,
             )
             self._adjust_row_index_cells(start_row_index=row_index)
-            self._on_row_deleted(row_index=row_index, data=data)
+            self._on_row_deleted(row_index=row_index, data=deleted_row_info.data)
         return table_event
 
     def _undo(self):
@@ -422,70 +353,69 @@ class Table(ABC):
 
     def _execute_revert(self, revert_event: TableEvent) -> Optional[TableEvent]:
         revert_revert_event = None
+        event_row_index = revert_event.row_index
+
         if revert_event.type == TableEventType.ROW_ADDED:
             # delete that row
-            revert_revert_event = self._delete_row_at_index(
-                row_index=revert_event.row_index
-            )
+            revert_revert_event = self._delete_row_at_index(row_index=event_row_index)
         elif revert_event.type == TableEventType.ROW_DELETED:
             # add in row index
             new_row = self._create_row(
-                row_index=revert_event.row_index, data=revert_event.data
+                row_index=event_row_index, data=revert_event.data
             )
-            revert_revert_event = self._add_row_at_index(
-                row_index=revert_event.row_index,
+            self._table_value_rows.add_row_at_index(
+                row_index=event_row_index,
                 row=new_row,
                 skip_select=True,
             )
+            self._adjust_row_index_cells(start_row_index=event_row_index)
+            revert_revert_event = TableEvent(
+                type=TableEventType.ROW_ADDED,
+                row_index=event_row_index,
+                data=new_row.data,
+            )
         elif revert_event.type == TableEventType.ROW_EDITED:
             # update data in cell
-            edit_row_index = revert_event.row_index
-            if edit_row_index >= 0 and edit_row_index < self.row_count:
-                # replace with new row to avoid on update triggers
-                # that can register revert event
-                current_row = self._rows[edit_row_index]
+            if self._table_value_rows.is_valid_row_index(row_index=event_row_index):
+                current_row = self._table_value_rows.get_row_at_index(
+                    row_index=event_row_index
+                )
                 is_selected = current_row.is_selected
                 current_row_data = current_row.data
-                self._delete_row_at_index(row_index=edit_row_index)
-                new_row = self._create_row(
-                    row_index=edit_row_index, data=revert_event.data
-                )
-                self._add_row_at_index(
-                    row_index=edit_row_index,
-                    row=new_row,
-                    skip_select=True,
+                new_row = self.update_row_at_index(
+                    row_index=event_row_index, data=revert_event.data
                 )
                 revert_revert_event = TableEvent(
                     type=TableEventType.ROW_EDITED,
-                    row_index=edit_row_index,
+                    row_index=event_row_index,
                     data=current_row_data,
                 )
                 if is_selected:
                     new_row.set_as_selected()
         elif revert_event.type == TableEventType.ROW_MOVED_UP:
             # move row down
-            upper_row_index = revert_event.row_index - 1
+            upper_row_index = event_row_index - 1
             if upper_row_index >= 0:
                 self._swap_row_index(
                     upper_row_index=upper_row_index,
-                    lower_row_index=revert_event.row_index,
+                    lower_row_index=event_row_index,
                 )
                 revert_revert_event = TableEvent(
                     type=TableEventType.ROW_MOVED_UP,
-                    row_index=revert_event.row_index,
+                    row_index=event_row_index,
                     data=None,  # not used
                 )
         elif revert_event.type == TableEventType.ROW_MOVED_DOWN:
             # move row up
-            lower_row_index = revert_event.row_index + 1
+            lower_row_index = event_row_index + 1
             if lower_row_index < self.row_count:
                 self._swap_row_index(
-                    upper_row_index=revert_event.row_index,
+                    upper_row_index=event_row_index,
                     lower_row_index=lower_row_index,
                 )
                 revert_revert_event = TableEvent(
                     type=TableEventType.ROW_MOVED_DOWN,
-                    row_index=revert_event.row_index,
+                    row_index=event_row_index,
                     data=None,  # not used
                 )
         return revert_revert_event

@@ -73,7 +73,7 @@ class TableRowCellTextbox(TableRowCellValueWidget):
                 20,
             )
         )
-        self._line_edit.textChanged.connect(self._text_updated)
+        self._line_edit.editingFinished.connect(self._text_updated)
         self.set_value(value=value)
 
     def set_value(self, value: str):

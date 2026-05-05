@@ -7,6 +7,7 @@ from qt_table_types import (
     RowInfo,
     TableButtonControls,
     TableCellUiType,
+    TableColumnConfig,
     TableElemClassStyle,
     TableHeaderRowConfig,
     TableShortcutKeys,
@@ -15,7 +16,6 @@ from qt_table_types import (
 from qt_table import (
     ROW_INDEX_PLACEHOLDER_TOKEN,
     Table,
-    TableColumnConfig,
     TableConfig,
     TableRowCellValue,
 )
