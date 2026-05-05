@@ -1,6 +1,8 @@
 from enum import Enum, auto
 from typing import Any, List, NamedTuple, Optional
 
+_MAX_EVENT_COUNT = 10
+
 
 class TableEventType(Enum):
     ROW_ADDED = auto()
@@ -29,9 +31,15 @@ class TableEventCollection:
         self._undo_events.append(event)
         print(f"Added undo {event.to_str()}")
 
+        if len(self._undo_events) > _MAX_EVENT_COUNT:
+            del self._undo_events[0]
+
     def add_redo_event(self, event: TableEvent):
         self._redo_events.append(event)
         print(f"Added redo {event.to_str()}")
+
+        if len(self._redo_events) > _MAX_EVENT_COUNT:
+            del self._redo_events[0]
 
     def get_last_undo_event(self) -> Optional[TableEvent]:
         return TableEventCollection._get_last_event_from_list(events=self._undo_events)

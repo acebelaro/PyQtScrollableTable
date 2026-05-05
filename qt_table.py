@@ -29,23 +29,6 @@ ROW_INDEX_PLACEHOLDER_TOKEN = "%row_index%"
 _TABLE_HEADER_CELL_GROUPBOX_NAME = "QtTableHeaderCellGroupBox"
 
 
-class ThreadFlag:
-
-    def __init__(self):
-        self._lock = threading.Lock()
-        self._flag = False
-
-    @property
-    def is_set(self) -> bool:
-        with self._lock:
-            return self._flag
-
-    @is_set.setter
-    def is_set(self, v: bool):
-        with self._lock:
-            self._flag = v
-
-
 class Table(ABC):
 
     on_rows_swapped = pyqtSignal(int, int)
@@ -61,7 +44,6 @@ class Table(ABC):
         self._groupbox_container = groupbox_container
         self._config = table_config
         self._before_update_confirmers = table_config.before_update_confirmers
-        self._is_hold_edit_revert_event_registration = ThreadFlag()
 
         self._calculated_row_width_from_header_row = 0
         self._columng_group_boxes: List[QGroupBox] = self._create_header_row()
@@ -295,10 +277,7 @@ class Table(ABC):
             row_index = self._get_row_index_by_id(
                 row_id=row_cell_value_updated_param.row_id
             )
-            if (
-                row_index != -1
-                and self._is_hold_edit_revert_event_registration.is_set == False
-            ):
+            if row_index != -1:
                 revert_edit = TableEvent(
                     type=TableEventType.ROW_EDITED,
                     row_index=row_index,
@@ -522,6 +501,7 @@ class Table(ABC):
             revert_revert_event = self._add_row_at_index(
                 row_index=revert_event.row_index,
                 row=new_row,
+                skip_select=True,
             )
         elif revert_event.type == TableEventType.ROW_EDITED:
             # update data in cell
