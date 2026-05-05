@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional
-import threading
 
 from PyQt6 import QtCore
 from PyQt6.QtGui import QShortcut, QKeySequence
