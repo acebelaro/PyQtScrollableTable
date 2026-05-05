@@ -7,12 +7,16 @@ class TableEventType(Enum):
     ROW_DELETED = auto()
     ROW_EDITED = auto()
     ROW_MOVED_UP = auto()
+    ROW_MOVED_DOWN = auto()
 
 
 class TableEvent(NamedTuple):
     type: TableEventType
     row_index: int
     data: Any
+
+    def to_str(self) -> str:
+        return f"{self.type.name}, {self.row_index}"
 
 
 class TableEventCollection:
@@ -23,9 +27,11 @@ class TableEventCollection:
 
     def add_undo_event(self, event: TableEvent):
         self._undo_events.append(event)
+        print(f"Added undo {event.to_str()}")
 
     def add_redo_event(self, event: TableEvent):
         self._redo_events.append(event)
+        print(f"Added redo {event.to_str()}")
 
     def get_last_undo_event(self) -> Optional[TableEvent]:
         return TableEventCollection._get_last_event_from_list(events=self._undo_events)
