@@ -142,6 +142,12 @@ class SampleTable(Table):
     def _on_row_deleted(self, row_index: int, data: int) -> None:
         print(f"Deleted row index {row_index} with data {data}")
 
+    def _check_if_row_can_accept_child(self, row_info: RowInfo):
+        row_data: SampleData = row_info.data
+        if row_data.index % 2 == 0:
+            return True
+        return False
+
     def _on_rows_swapped(
         self,
         lower_row_index: int,

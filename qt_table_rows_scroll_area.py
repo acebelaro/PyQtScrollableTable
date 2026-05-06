@@ -15,16 +15,14 @@ class TableValueRowsScrollArea:
         groupbox_container: QGroupBox,
         y_pos: int,
     ):
-        self._groupbox_container = groupbox_container
-
         # create scroll area
-        self._scroll_area = QScrollArea(parent=self._groupbox_container)
+        self._scroll_area = QScrollArea(parent=groupbox_container)
         self._scroll_area.setGeometry(
             QtCore.QRect(
                 0,
                 y_pos,
-                self._groupbox_container.width(),
-                self._groupbox_container.height() - y_pos,
+                groupbox_container.width(),
+                groupbox_container.height() - y_pos,
             )
         )
         self._scroll_area.setVerticalScrollBarPolicy(

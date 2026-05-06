@@ -442,6 +442,10 @@ class Table(ABC):
         raise NotImplementedError()
 
     @abstractmethod
+    def _check_if_row_can_accept_child(self, row_info: RowInfo) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
     def _on_rows_swapped(
         self,
         lower_row_index: int,

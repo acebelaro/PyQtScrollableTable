@@ -15,7 +15,6 @@ from qt_table_row_cell import (
     TableRowCellValueWidget,
 )
 from qt_table_types import (
-    RowCellValue,
     RowClassNameDeciderParam,
     TableCellUiType,
     TableRowCellConfig,
@@ -38,11 +37,11 @@ class TableRow(QWidget):
     def __init__(
         self,
         width: int,
-        # height: int,
         config: TableValueRowConfig,
         cell_configs: List[TableRowCellConfig],
         id: str = "",
         data: Optional[Any] = None,
+        parent_row: Optional["TableRow"] = None,
     ):
         super().__init__()
         self._config = config
@@ -70,9 +69,22 @@ class TableRow(QWidget):
             self._update_property_due_to_selected_state
         )
 
+        self._parent_row = parent_row
+        self._child_rows: List["TableRow"] = []
+
     @property
     def id(self) -> str:
         return self._id
+
+    @property
+    def parent_row(self) -> Optional["TableRow"]:
+        return self._parent_row
+
+    @property
+    def has_parent(self) -> bool:
+        if self._parent_row:
+            return True
+        return False
 
     @property
     def row_index_str(self) -> str:
@@ -126,6 +138,12 @@ class TableRow(QWidget):
                     f"Cannot find value for cell widget index '{cell_widget.cell_index}'"
                 )
         self._update_property_due_to_selected_state()
+
+    def add_child_row(self, child_index: int, child_row: "TableRow"):
+        if child_index == -1:
+            self._child_rows.append(child_row)
+        else:
+            self._child_rows.insert(child_index, child_row)
 
     def _create_css_style_text(self) -> str:
         row_css_style_text = ""
