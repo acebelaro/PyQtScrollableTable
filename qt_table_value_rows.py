@@ -1,12 +1,8 @@
 from typing import List, Optional
 
-from PyQt6 import QtCore
-from PyQt6.QtWidgets import (
-    QWidget,
-    QGroupBox,
-    QScrollArea,
-    QVBoxLayout,
-)
+from PyQt6.QtWidgets import QGroupBox
+
+from qt_table_rows_scroll_area import TableValueRowsScrollArea
 from qt_table_types import (
     RowInfo,
 )
@@ -25,36 +21,10 @@ class TableValueRows:
     ):
         self._groupbox_container = groupbox_container
         self._select_new_row_added = select_new_row_added
-
-        # create scroll area
-        self._scroll_area = QScrollArea(parent=self._groupbox_container)
-        self._scroll_area.setGeometry(
-            QtCore.QRect(
-                0,
-                y_pos,
-                self._groupbox_container.width(),
-                self._groupbox_container.height() - y_pos,
-            )
+        self._rows_scroll_area = TableValueRowsScrollArea(
+            groupbox_container=self._groupbox_container,
+            y_pos=y_pos,
         )
-        self._scroll_area.setVerticalScrollBarPolicy(
-            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOn
-        )
-        self._scroll_area.setHorizontalScrollBarPolicy(
-            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        self._scroll_area.setWidgetResizable(True)
-        self._scroll_area.setObjectName("scrollAreaActionList")
-
-        self._scroll_area_content = QWidget()
-        self._scroll_area_content.setGeometry(self._scroll_area.rect())
-        self._scroll_area.setWidget(self._scroll_area_content)
-
-        self._table_layout = QVBoxLayout()
-        self._table_layout.addStretch()
-        self._table_layout.setContentsMargins(0, 0, 0, 0)
-        self._table_layout.setSpacing(0)
-        self._scroll_area_content.setLayout(self._table_layout)
-
         self._rows: List[TableRow] = []
 
     @property
@@ -83,7 +53,7 @@ class TableValueRows:
     ):
         print(f"Adding at row {row_index}")
         self._rows.insert(row_index, row)
-        self._table_layout.insertWidget(row_index, row)
+        self._rows_scroll_area.add_row_at_widget_index(row=row, widget_index=row_index)
 
         if self._select_new_row_added and not skip_select:
             selected_row = self.selected_row
@@ -100,7 +70,7 @@ class TableValueRows:
                 data=self._rows[row_index].data,
             )
             del self._rows[row_index]
-            self._table_layout.removeWidget(row)
+            self._rows_scroll_area.remove_row(row=row)
             row.setParent(None)
             row.deleteLater()
         return deleted_row_info
@@ -119,10 +89,10 @@ class TableValueRows:
 
             deleted_row = self._rows[lower_row_index]
             del self._rows[lower_row_index]
-            self._table_layout.removeWidget(deleted_row)
+            self._rows_scroll_area.remove_row(deleted_row)
 
             self._rows.insert(upper_row_index, deleted_row)
-            self._table_layout.insertWidget(upper_row_index, deleted_row)
+            self._rows_scroll_area.add_row_at_widget_index(row=deleted_row,widget_index=upper_row_index)
             is_swapped = True
 
         return is_swapped
