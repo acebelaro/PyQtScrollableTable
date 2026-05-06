@@ -29,7 +29,10 @@ class MainWindow(QMainWindow):
             button_controls=button_controls,
         )
         self._btn_add_row = self._ui.btnAddRow
+        self._btn_add_child_row = self._ui.btnAddChildRow
+
         self._btn_add_row.clicked.connect(self._add_row)
+        self._btn_add_child_row.clicked.connect(self._add_child_row)
 
     def _add_row(self):
         data = SampleData(
@@ -43,6 +46,22 @@ class MainWindow(QMainWindow):
         else:
             self._table.add_row_at_index(row_index=selected_row_index + 1, data=data)
         self._data_index = self._data_index + 1
+
+    def _add_child_row(self):
+        selected_row_index = self._table.selected_row_index
+        if selected_row_index != -1:
+            data = SampleData(
+                enabled=True,
+                name=f"Test for {self._data_index}",
+                value=self._data_index,
+            )
+            self._table.add_child_row(row_index=selected_row_index, data=data)
+            # selected_row_index = self._table.selected_row_index
+            # if selected_row_index == -1:
+            #     self._table.add_new_row(data=data)
+            # else:
+            #     self._table.add_row_at_index(row_index=selected_row_index + 1, data=data)
+            self._data_index = self._data_index + 1
 
 
 if __name__ == "__main__":

@@ -36,6 +36,7 @@ class Table(ABC):
         self._name = name
         self._groupbox_container = groupbox_container
         self._config = table_config
+        self._row_number_cell_value_creator = table_config.row_number_cell_value_creator
         self._before_update_confirmers = table_config.before_update_confirmers
 
         self._header_row = TableHeaderRow(
@@ -118,6 +119,9 @@ class Table(ABC):
             if row_added_event:
                 self._event_collection.add_undo_event(event=row_added_event)
 
+    def add_child_row(self, row_index: int, data: Any):
+        pass
+
     def update_row_at_index(self, row_index: int, data: Any) -> TableRow:
         # replace with new row to avoid on update triggers
         # that can register revert event
@@ -130,7 +134,7 @@ class Table(ABC):
         )
         return new_row
 
-    def _create_row_cell_configs(self) -> 1:
+    def _create_row_cell_configs(self) -> List[TableRowCellConfig]:
         row_cell_configs: List[TableRowCellConfig] = []
         cell_index = 0
         for column_config in self._config.column_configs:
@@ -145,12 +149,10 @@ class Table(ABC):
         return row_cell_configs
 
     def _create_row_index_cell_value(self, row_index: int) -> str:
-        row_index_str = f"{row_index+1}"
-        if self._config.row_number_cell_format != "":
-            return self._config.row_number_cell_format.replace(
-                ROW_INDEX_PLACEHOLDER_TOKEN, row_index_str
-            )
-        return row_index_str
+        row_number = row_index + 1
+        if self._row_number_cell_value_creator:
+            return self._row_number_cell_value_creator(row_number)
+        return f"{row_number}"
 
     def _on_value_cell_updated(
         self, row_cell_value_updated_param: TableRowCellValueUpdatedParam

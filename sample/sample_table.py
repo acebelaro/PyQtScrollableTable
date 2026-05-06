@@ -92,8 +92,7 @@ class SampleTable(Table):
                 header_row_config=header_row_config,
                 column_configs=column_configs,
                 value_row_config=value_row_config,
-                # selected_row_color_css_value="#0ec0e8",
-                row_number_cell_format=f"Step {ROW_INDEX_PLACEHOLDER_TOKEN}",
+                row_number_cell_value_creator=self._create_row_number_cell_value,
                 button_controls=button_controls,
                 before_update_confirmers=BeforeUpdateConfirmers(
                     confirm_row_addition=self._confirm_row_addition,
@@ -149,6 +148,9 @@ class SampleTable(Table):
         upper_row_index: int,
     ):
         print(f"Swapped {lower_row_index} <-> {upper_row_index}")
+
+    def _create_row_number_cell_value(self, row_number: int) -> str:
+        return f"Step {row_number}"
 
     def _confirm_row_addition(self, row_info: RowInfo) -> bool:
         print("Just add...")
