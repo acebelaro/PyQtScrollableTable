@@ -190,7 +190,8 @@ class Table(ABC):
                 report_when_deleted=True,
             )
             row_delete_event = self._delete_row(delete_param=delete_param)
-            self._undo_redo.add_undo_event(event=row_delete_event)
+            if row_delete_event:
+                self._undo_redo.add_undo_event(event=row_delete_event)
 
     def _move_up_selected(self):
         selected_row_info = self._value_rows.get_selected_row_info()
