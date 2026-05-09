@@ -39,9 +39,9 @@ class MainWindow(QMainWindow):
         )
         selected_row_index = self._table.selected_row_index
         if selected_row_index == -1:
-            self._table.add_new_row(data=data)
+            self._table.add_new_row_data(data=data)
         else:
-            self._table.add_row_at_index(row_index=selected_row_index + 1, data=data)
+            self._table.add_new_row_data_at_index(row_index=selected_row_index + 1, data=data)
         self._data_index = self._data_index + 1
 
 

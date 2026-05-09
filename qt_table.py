@@ -8,10 +8,13 @@ from PyQt6.QtCore import pyqtSignal
 from qt_table_header_rows import TableHeaderRows
 from qt_table_types import (
     RowInfo,
+    TableCreateAddRowParam,
     TableConfig,
+    TableDeleteRowParam,
     TableRowCellConfig,
     TableRowCellValue,
     TableRowCellValueUpdatedParam,
+    TableSwapRowsParam,
 )
 from qt_table_row import TableRow
 
@@ -58,10 +61,9 @@ class Table(ABC):
         )
         self._undo_redo = TableUndoRedo(
             actions=UndoRedoActions(
-                create_row=self._create_row,
-                add_row_at_index=self._add_row_at_index,
-                delete_row_at_index=self._delete_row_at_index,
-                swap_rows=self._swap_row_index,
+                create_and_add_row_at_index=self._create_and_add_row_at_index,
+                delete_row=self._delete_row,
+                swap_rows=self._swap_rows,
             ),
             get_row_at_index=self._value_rows.get_row_at_index,
         )
@@ -113,51 +115,29 @@ class Table(ABC):
             return selected_row_info.row_index
         return -1
 
-    def add_new_row(self, data: Any):
+    def add_new_row_data(self, data: Any):
         """Create and add new row at the bottom."""
         row_index = self.row_count
-        self.add_row_at_index(row_index=row_index, data=data)
+        self.add_new_row_data_at_index(
+            row_index=row_index,
+            data=data,
+        )
 
-    def add_row_at_index(self, row_index: int, data: Any):
-        proceed_to_add = True
-        if self._before_update_confirmers:
-            confirm_row_addition = self._before_update_confirmers.confirm_row_addition
-            if confirm_row_addition:
-                proceed_to_add = confirm_row_addition(
-                    RowInfo(
-                        row_index=row_index,
-                        data=data,
-                    )
-                )
-        if proceed_to_add:
-            new_row = self._create_row(row_index=row_index, data=data)
-            row_added_event = self._add_row_at_index(row_index=row_index, row=new_row)
-            if row_added_event:
-                self._undo_redo.add_undo_event(event=row_added_event)
+    def add_new_row_data_at_index(self, row_index: int, data: Any):
+        row_added_event = self._create_and_add_row_at_index(
+            add_param=TableCreateAddRowParam(
+                row_index=row_index,
+                data=data,
+                skip_select=False,
+                confirm_before_adding=True,
+                report_when_added=True,
+            )
+        )
+        if row_added_event:
+            self._undo_redo.add_undo_event(event=row_added_event)
 
     def update_row_at_index(self, row_index: int, data: Any):
         self._value_rows.set_data_of_row(row_index=row_index, data=data)
-
-    def _add_row_at_index(
-        self, row_index: int, row: TableRow, skip_select: bool = False
-    ) -> Optional[TableEvent]:
-        print(f"Adding at row {row_index}")
-        self._value_rows.add_row(row=row, row_index=row_index)
-        self._value_rows_display.add_row_at_index(row=row, row_index=row_index)
-        self._on_row_added(row_index=row_index, data=row.data)
-
-        if self._config.select_new_row_added and not skip_select:
-            selected_row = self.selected_row
-            if selected_row:
-                selected_row.clear_selected_state()
-            row.set_as_selected()
-
-        row_added_event = TableEvent(
-            type=TableEventType.ROW_ADDED,
-            row_index=row_index,
-            data=row.data,
-        )
-        return row_added_event
 
     def _create_row_cell_configs(self) -> 1:
         row_cell_configs: List[TableRowCellConfig] = []
@@ -201,83 +181,30 @@ class Table(ABC):
     def _on_row_double_clicked(self, id: str):
         pass
 
-    def _swap_row_index(
-        self,
-        upper_row_index: int,
-        lower_row_index: int,
-    ) -> bool:
-        proceed_swap = True
-
-        upper_row = self._value_rows.get_row_at_index(row_index=upper_row_index)
-        lower_row = self._value_rows.get_row_at_index(row_index=lower_row_index)
-
-        if (
-            self._before_update_confirmers
-            and self._before_update_confirmers.confirm_row_swap
-        ):
-            upper_row_info = RowInfo(
-                row_index=upper_row_index,
-                data=upper_row.data,
-            )
-            lower_row_info = RowInfo(
-                row_index=lower_row_index,
-                data=lower_row.data,
-            )
-            proceed_swap = self._before_update_confirmers.confirm_row_swap(
-                upper_row_info=upper_row_info,
-                lower_row_info=lower_row_info,
-            )
-        if proceed_swap:
-            deleted_row = self._value_rows.delete_row_at_index(
-                row_index=lower_row_index
-            )
-            self._value_rows_display.remove_row(row=deleted_row)
-
-            self._value_rows.add_row(row=deleted_row, row_index=upper_row_index)
-            self._value_rows_display.add_row_at_index(
-                row=deleted_row, row_index=upper_row_index
-            )
-
-            self._value_rows.adjust_row_index_cells(start_row_index=upper_row_index)
-            self._on_rows_swapped(
-                lower_row_index=lower_row_index,
-                upper_row_index=upper_row_index,
-            )
-        return proceed_swap
-
     def _delete_selected(self):
         selected_row_info = self._value_rows.get_selected_row_info()
         if selected_row_info:
-            proceed_to_delete = True
-            confirm_row_deletion = self._before_update_confirmers.confirm_row_deletion
-            if confirm_row_deletion:
-                proceed_to_delete = confirm_row_deletion(selected_row_info)
-            if proceed_to_delete:
-                row_delete_event = self._delete_row_at_index(
-                    row_index=selected_row_info.row_index,
-                )
-                if row_delete_event:
-                    self._undo_redo.add_undo_event(event=row_delete_event)
-                    if self._config.select_next_row_after_row_deletion:
-                        new_selected_row_index = selected_row_info.row_index
-                        row_count = self.row_count
-                        if new_selected_row_index == row_count:
-                            new_selected_row_index = row_count - 1
-
-                        self._value_rows.set_row_as_selected(
-                            row_index=new_selected_row_index
-                        )
-        else:
-            print("No selected row index.")
+            delete_param = TableDeleteRowParam(
+                row_index=selected_row_info.row_index,
+                confirm_before_deleting=True,
+                report_when_deleted=True,
+            )
+            row_delete_event = self._delete_row(delete_param=delete_param)
+            self._undo_redo.add_undo_event(event=row_delete_event)
 
     def _move_up_selected(self):
         selected_row_info = self._value_rows.get_selected_row_info()
         if selected_row_info:
             upper_row_index = selected_row_info.row_index - 1
             if upper_row_index >= 0:
-                is_swapped = self._swap_row_index(
+                swap_param = TableSwapRowsParam(
                     upper_row_index=upper_row_index,
                     lower_row_index=selected_row_info.row_index,
+                    confirm_before_swapping=True,
+                    report_when_swapped=True,
+                )
+                is_swapped = self._swap_rows(
+                    swap_param=swap_param,
                 )
                 if is_swapped:
                     revert_swap = TableEvent(
@@ -294,9 +221,14 @@ class Table(ABC):
         if selected_row_info:
             lower_row_index = selected_row_info.row_index + 1
             if lower_row_index < self.row_count:
-                is_swapped = self._swap_row_index(
+                swap_param = TableSwapRowsParam(
                     upper_row_index=selected_row_info.row_index,
                     lower_row_index=lower_row_index,
+                    confirm_before_swapping=True,
+                    report_when_swapped=True,
+                )
+                is_swapped = self._swap_rows(
+                    swap_param=swap_param,
                 )
                 if is_swapped:
                     revert_swap = TableEvent(
@@ -325,22 +257,149 @@ class Table(ABC):
         row.set_cell_values(cell_values=row_cell_values)
         return row
 
-    def _delete_row_at_index(self, row_index: int) -> Optional[TableEvent]:
-        table_event: Optional[TableEvent] = None
-        deleted_row = self._value_rows.delete_row_at_index(row_index=row_index)
-        if deleted_row:
-            data_of_deleted_row = deleted_row.data
-            self._value_rows_display.remove_row(row=deleted_row)
-            deleted_row.setParent(None)
-            deleted_row.deleteLater()
-            self._value_rows.adjust_row_index_cells(start_row_index=row_index)
-            self._on_row_deleted(row_index=row_index, data=data_of_deleted_row)
-            table_event = TableEvent(
-                type=TableEventType.ROW_DELETED,
-                row_index=row_index,
-                data=data_of_deleted_row,
+    def _create_and_add_row_at_index(
+        self,
+        add_param: TableCreateAddRowParam,
+    ) -> Optional[TableEvent]:
+        row_added_event = None
+        proceed_to_add = True
+        if (
+            add_param.confirm_before_adding
+            and self._config.before_update_confirmers
+            and self._config.before_update_confirmers.confirm_row_addition
+        ):
+            proceed_to_add = self._config.before_update_confirmers.confirm_row_addition(
+                RowInfo(
+                    row_index=add_param.row_index,
+                    data=add_param.data,
+                )
             )
+        if proceed_to_add:
+            new_row = self._create_row(
+                row_index=add_param.row_index, data=add_param.data
+            )
+            self._value_rows.add_row(row=new_row, row_index=add_param.row_index)
+            self._value_rows_display.add_row_at_index(
+                row=new_row, row_index=add_param.row_index
+            )
+            if add_param.report_when_added:
+                self._on_row_added(row_index=add_param.row_index, data=new_row.data)
+            if self._config.select_new_row_added and not add_param.skip_select:
+                selected_row = self.selected_row
+                if selected_row:
+                    selected_row.clear_selected_state()
+                new_row.set_as_selected()
+            row_added_event = TableEvent(
+                type=TableEventType.ROW_ADDED,
+                row_index=add_param.row_index,
+                data=new_row.data,
+            )
+        return row_added_event
+
+    def _delete_row(self, delete_param: TableDeleteRowParam) -> Optional[TableEvent]:
+        table_event: Optional[TableEvent] = None
+        proceed_to_delete = True
+        row_to_delete = self._value_rows.get_row_at_index(
+            row_index=delete_param.row_index
+        )
+        if row_to_delete:
+            is_deleted_row_selected = row_to_delete.is_selected
+            if (
+                delete_param.confirm_before_deleting
+                and self._before_update_confirmers
+                and self._before_update_confirmers.confirm_row_deletion
+            ):
+                proceed_to_delete = self._before_update_confirmers.confirm_row_deletion(
+                    RowInfo(
+                        row_index=delete_param.row_index,
+                        data=row_to_delete.data,
+                    )
+                )
+            if proceed_to_delete:
+                pass
+                deleted_row = self._value_rows.delete_row_at_index(
+                    row_index=delete_param.row_index
+                )
+                if deleted_row:
+                    data_of_deleted_row = deleted_row.data
+                    self._value_rows_display.remove_row(row=deleted_row)
+                    deleted_row.setParent(None)
+                    deleted_row.deleteLater()
+                    self._value_rows.adjust_row_index_cells(
+                        start_row_index=delete_param.row_index
+                    )
+                    if delete_param.report_when_deleted:
+                        self._on_row_deleted(
+                            row_index=delete_param.row_index, data=data_of_deleted_row
+                        )
+                    table_event = TableEvent(
+                        type=TableEventType.ROW_DELETED,
+                        row_index=delete_param.row_index,
+                        data=data_of_deleted_row,
+                    )
+                    if (
+                        is_deleted_row_selected
+                        and self._config.select_next_row_after_row_deletion
+                    ):
+                        new_selected_row_index = delete_param.row_index
+                        row_count = self.row_count
+                        if new_selected_row_index == row_count:
+                            new_selected_row_index = row_count - 1
+
+                        self._value_rows.set_row_as_selected(
+                            row_index=new_selected_row_index
+                        )
         return table_event
+
+    def _swap_rows(self, swap_param: TableSwapRowsParam) -> bool:
+        is_swapped = False
+        upper_row_index = swap_param.upper_row_index
+        lower_row_index = swap_param.lower_row_index
+        is_upper_row_index_valid = self._value_rows.is_valid_row_index(
+            row_index=upper_row_index
+        )
+        is_lower_row_index_valid = self._value_rows.is_valid_row_index(
+            row_index=lower_row_index
+        )
+        if is_upper_row_index_valid and is_lower_row_index_valid:
+            proceed_to_swap = True
+            upper_row = self._value_rows.get_row_at_index(row_index=upper_row_index)
+            lower_row = self._value_rows.get_row_at_index(row_index=lower_row_index)
+            if (
+                swap_param.confirm_before_swapping
+                and self._before_update_confirmers
+                and self._before_update_confirmers.confirm_row_swap
+            ):
+                upper_row_info = RowInfo(
+                    row_index=upper_row_index,
+                    data=upper_row.data,
+                )
+                lower_row_info = RowInfo(
+                    row_index=lower_row_index,
+                    data=lower_row.data,
+                )
+                proceed_to_swap = self._before_update_confirmers.confirm_row_swap(
+                    upper_row_info=upper_row_info,
+                    lower_row_info=lower_row_info,
+                )
+            if proceed_to_swap:
+                deleted_row = self._value_rows.delete_row_at_index(
+                    row_index=lower_row_index
+                )
+                self._value_rows_display.remove_row(row=deleted_row)
+
+                self._value_rows.add_row(row=deleted_row, row_index=upper_row_index)
+                self._value_rows_display.add_row_at_index(
+                    row=deleted_row, row_index=upper_row_index
+                )
+                self._value_rows.adjust_row_index_cells(start_row_index=upper_row_index)
+                if swap_param.report_when_swapped:
+                    self._on_rows_swapped(
+                        lower_row_index=lower_row_index,
+                        upper_row_index=upper_row_index,
+                    )
+                is_swapped = True
+        return is_swapped
 
     @abstractmethod
     def _create_row_index_cell_value(

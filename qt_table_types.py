@@ -75,6 +75,27 @@ class TableShortcutKeys(NamedTuple):
     ctrl_z_y_undo_redo: Optional[bool] = False
 
 
+class TableCreateAddRowParam(NamedTuple):
+    row_index: int
+    data: Any
+    skip_select: Optional[bool] = False
+    confirm_before_adding: Optional[bool] = False
+    report_when_added: Optional[bool] = True
+
+
+class TableDeleteRowParam(NamedTuple):
+    row_index: int
+    confirm_before_deleting: Optional[bool] = False
+    report_when_deleted: Optional[bool] = True
+
+
+class TableSwapRowsParam(NamedTuple):
+    upper_row_index: int
+    lower_row_index: int
+    confirm_before_swapping: Optional[bool] = False
+    report_when_swapped: Optional[bool] = True
+
+
 class TableConfig(NamedTuple):
     header_row_config: TableHeaderRowConfig
     column_configs: List[TableColumnConfig]
