@@ -7,6 +7,7 @@ from qt_table_types import (
     RowInfo,
     TableButtonControls,
     TableCellUiType,
+    TableColumnConfig,
     TableElemClassStyle,
     TableHeaderRowConfig,
     TableShortcutKeys,
@@ -15,7 +16,6 @@ from qt_table_types import (
 from qt_table import (
     ROW_INDEX_PLACEHOLDER_TOKEN,
     Table,
-    TableColumnConfig,
     TableConfig,
     TableRowCellValue,
 )
@@ -92,7 +92,6 @@ class SampleTable(Table):
                 header_row_config=header_row_config,
                 column_configs=column_configs,
                 value_row_config=value_row_config,
-                # selected_row_color_css_value="#0ec0e8",
                 row_number_cell_format=f"Step {ROW_INDEX_PLACEHOLDER_TOKEN}",
                 button_controls=button_controls,
                 before_update_confirmers=BeforeUpdateConfirmers(
