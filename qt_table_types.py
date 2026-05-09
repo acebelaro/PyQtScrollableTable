@@ -79,7 +79,6 @@ class TableConfig(NamedTuple):
     header_row_config: TableHeaderRowConfig
     column_configs: List[TableColumnConfig]
     value_row_config: TableValueRowConfig
-    row_number_cell_format: str = ""
     button_controls: Optional[TableButtonControls] = None
     before_update_confirmers: Optional[BeforeUpdateConfirmers] = None
     select_new_row_added: bool = True

@@ -14,7 +14,6 @@ from qt_table_types import (
     TableValueRowConfig,
 )
 from qt_table import (
-    ROW_INDEX_PLACEHOLDER_TOKEN,
     Table,
     TableConfig,
     TableRowCellValue,
@@ -92,7 +91,6 @@ class SampleTable(Table):
                 header_row_config=header_row_config,
                 column_configs=column_configs,
                 value_row_config=value_row_config,
-                row_number_cell_format=f"Step {ROW_INDEX_PLACEHOLDER_TOKEN}",
                 button_controls=button_controls,
                 before_update_confirmers=BeforeUpdateConfirmers(
                     confirm_row_addition=self._confirm_row_addition,
@@ -104,6 +102,9 @@ class SampleTable(Table):
                 ),
             ),
         )
+
+    def _create_row_index_cell_value(self, row_index: int) -> str:
+        return f"Step {row_index+1}"
 
     def _create_row_cell_values(
         self,
