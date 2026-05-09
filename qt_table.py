@@ -14,10 +14,15 @@ from qt_table_types import (
     TableRowCellValueUpdatedParam,
 )
 from qt_table_row import TableRow
-from qt_table_event import TableEvent, TableEventCollection, TableEventType
+
+from qt_table_undo_redo import (
+    TableEvent,
+    TableEventType,
+    TableUndoRedo,
+    UndoRedoActions,
+)
 from qt_table_value_rows import TableValueRows
 from qt_table_value_rows_display import TableValueRowsDisplay
-
 
 
 class Table(ABC):
@@ -36,11 +41,6 @@ class Table(ABC):
         self._config = table_config
         self._before_update_confirmers = table_config.before_update_confirmers
 
-        self._value_rows = TableValueRows(
-            row_index_cell_value_creator=self._create_row_index_cell_value,
-            row_cell_values_creator=self._create_row_cell_values,
-        )
-
         self._header_rows = TableHeaderRows(
             name=name,
             groupbox_container=groupbox_container,
@@ -52,7 +52,20 @@ class Table(ABC):
             groupbox_container=self._groupbox_container,
             y_pos=self._config.header_row_config.height,
         )
-        self._event_collection = TableEventCollection()
+        self._value_rows = TableValueRows(
+            row_index_cell_value_creator=self._create_row_index_cell_value,
+            row_cell_values_creator=self._create_row_cell_values,
+        )
+        self._undo_redo = TableUndoRedo(
+            actions=UndoRedoActions(
+                create_row=self._create_row,
+                add_row_at_index=self._add_row_at_index,
+                delete_row_at_index=self._delete_row_at_index,
+                swap_rows=self._swap_row_index,
+            ),
+            get_row_at_index=self._value_rows.get_row_at_index,
+        )
+
         self._row_cell_configs: List[TableRowCellConfig] = (
             self._create_row_cell_configs()
         )
@@ -68,16 +81,22 @@ class Table(ABC):
                     self._move_down_selected
                 )
 
-        if table_config.shortcut_keys:
-            if table_config.shortcut_keys.ctrl_z_y_undo_redo:
-                undo_shortcut = QShortcut(
-                    QKeySequence("Ctrl+Z"), self._groupbox_container
-                )
-                undo_shortcut.activated.connect(self._undo)
-                redo_shortcut = QShortcut(
-                    QKeySequence("Ctrl+Y"), self._groupbox_container
-                )
-                redo_shortcut.activated.connect(self._redo)
+        if table_config.shortcut_keys and table_config.shortcut_keys.ctrl_z_y_undo_redo:
+            undo_shortcut = QShortcut(
+                QKeySequence("Ctrl+Z"),
+                self._groupbox_container,
+            )
+            undo_shortcut.activated.connect(self._undo_redo.undo)
+
+            redo_shortcut = QShortcut(
+                QKeySequence("Ctrl+Y"),
+                self._groupbox_container,
+            )
+            redo_shortcut.activated.connect(self._undo_redo.redo)
+
+    @property
+    def rows(self) -> List[TableRow]:
+        return self._value_rows.rows
 
     @property
     def row_count(self) -> int:
@@ -114,7 +133,7 @@ class Table(ABC):
             new_row = self._create_row(row_index=row_index, data=data)
             row_added_event = self._add_row_at_index(row_index=row_index, row=new_row)
             if row_added_event:
-                self._event_collection.add_undo_event(event=row_added_event)
+                self._undo_redo.add_undo_event(event=row_added_event)
 
     def update_row_at_index(self, row_index: int, data: Any):
         self._value_rows.set_data_of_row(row_index=row_index, data=data)
@@ -125,6 +144,7 @@ class Table(ABC):
         print(f"Adding at row {row_index}")
         self._value_rows.add_row(row=row, row_index=row_index)
         self._value_rows_display.add_row_at_index(row=row, row_index=row_index)
+        self._on_row_added(row_index=row_index, data=row.data)
 
         if self._config.select_new_row_added and not skip_select:
             selected_row = self.selected_row
@@ -169,7 +189,7 @@ class Table(ABC):
                 row_index=updated_row_info.row_index,
                 data=row_cell_value_updated_param.current_row_data,
             )
-            self._event_collection.add_undo_event(event=revert_edit)
+            self._undo_redo.add_undo_event(event=revert_edit)
             self._value_rows.set_data_of_row(
                 row_index=updated_row_info.row_index, data=new_data
             )
@@ -237,7 +257,7 @@ class Table(ABC):
                     row_index=selected_row_info.row_index,
                 )
                 if row_delete_event:
-                    self._event_collection.add_undo_event(event=row_delete_event)
+                    self._undo_redo.add_undo_event(event=row_delete_event)
                     if self._config.select_next_row_after_row_deletion:
                         new_selected_row_index = selected_row_info.row_index
                         row_count = self.row_count
@@ -265,7 +285,7 @@ class Table(ABC):
                         row_index=selected_row_info.row_index,
                         data=None,  # not used
                     )
-                    self._event_collection.add_undo_event(event=revert_swap)
+                    self._undo_redo.add_undo_event(event=revert_swap)
             else:
                 print("Nowhere to move up")
 
@@ -284,7 +304,7 @@ class Table(ABC):
                         row_index=selected_row_info.row_index,
                         data=None,  # not used
                     )
-                    self._event_collection.add_undo_event(event=revert_swap)
+                    self._undo_redo.add_undo_event(event=revert_swap)
             else:
                 print("Nowhere to move down")
 
@@ -322,92 +342,6 @@ class Table(ABC):
             )
         return table_event
 
-    def _undo(self):
-        """Undo the last table action."""
-        last_undo_event = self._event_collection.get_last_undo_event()
-        if last_undo_event:
-            row_event_for_redo = self._execute_revert(revert_event=last_undo_event)
-            if row_event_for_redo:
-                self._event_collection.add_redo_event(event=row_event_for_redo)
-
-    def _redo(self):
-        """Redo the last undone table action."""
-        last_redo_event = self._event_collection.get_last_redo_event()
-        if last_redo_event:
-            row_event_for_undo = self._execute_revert(revert_event=last_redo_event)
-            if row_event_for_undo:
-                self._event_collection.add_undo_event(event=row_event_for_undo)
-
-    def _execute_revert(self, revert_event: TableEvent) -> Optional[TableEvent]:
-        revert_revert_event = None
-        if revert_event.type == TableEventType.ROW_ADDED:
-            # delete that row
-            revert_revert_event = self._delete_row_at_index(
-                row_index=revert_event.row_index
-            )
-        elif revert_event.type == TableEventType.ROW_DELETED:
-            # add in row index
-            new_row = self._create_row(
-                row_index=revert_event.row_index, data=revert_event.data
-            )
-            revert_revert_event = self._add_row_at_index(
-                row_index=revert_event.row_index,
-                row=new_row,
-                skip_select=True,
-            )
-        elif revert_event.type == TableEventType.ROW_EDITED:
-            # update data in cell
-            edit_row_index = revert_event.row_index
-            current_row = self._value_rows.get_row_at_index(row_index=edit_row_index)
-            if current_row:
-                # replace with new row to avoid on update triggers
-                # that can register revert event
-                is_selected = current_row.is_selected
-                current_row_data = current_row.data
-                self._delete_row_at_index(row_index=edit_row_index)
-                new_row = self._create_row(
-                    row_index=edit_row_index, data=revert_event.data
-                )
-                self._add_row_at_index(
-                    row_index=edit_row_index,
-                    row=new_row,
-                    skip_select=True,
-                )
-                revert_revert_event = TableEvent(
-                    type=TableEventType.ROW_EDITED,
-                    row_index=edit_row_index,
-                    data=current_row_data,
-                )
-                if is_selected:
-                    new_row.set_as_selected()
-        elif revert_event.type == TableEventType.ROW_MOVED_UP:
-            # move row down
-            upper_row_index = revert_event.row_index - 1
-            if upper_row_index >= 0:
-                self._swap_row_index(
-                    upper_row_index=upper_row_index,
-                    lower_row_index=revert_event.row_index,
-                )
-                revert_revert_event = TableEvent(
-                    type=TableEventType.ROW_MOVED_UP,
-                    row_index=revert_event.row_index,
-                    data=None,  # not used
-                )
-        elif revert_event.type == TableEventType.ROW_MOVED_DOWN:
-            # move row up
-            lower_row_index = revert_event.row_index + 1
-            if lower_row_index < self.row_count:
-                self._swap_row_index(
-                    upper_row_index=revert_event.row_index,
-                    lower_row_index=lower_row_index,
-                )
-                revert_revert_event = TableEvent(
-                    type=TableEventType.ROW_MOVED_DOWN,
-                    row_index=revert_event.row_index,
-                    data=None,  # not used
-                )
-        return revert_revert_event
-
     @abstractmethod
     def _create_row_index_cell_value(
         self,
@@ -428,6 +362,10 @@ class Table(ABC):
         self,
         cell_values: List[TableRowCellValue],
     ) -> Any:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def _on_row_added(self, row_index: int, data: int) -> None:
         raise NotImplementedError()
 
     @abstractmethod

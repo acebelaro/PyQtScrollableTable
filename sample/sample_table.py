@@ -140,6 +140,9 @@ class SampleTable(Table):
             value=cell_values[3].value,
         )
 
+    def _on_row_added(self, row_index: int, data: int) -> None:
+        print(f"Added row index {row_index} with data {data}")
+
     def _on_row_deleted(self, row_index: int, data: int) -> None:
         print(f"Deleted row index {row_index} with data {data}")
 

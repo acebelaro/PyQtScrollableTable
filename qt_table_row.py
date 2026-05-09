@@ -15,7 +15,6 @@ from qt_table_row_cell import (
     TableRowCellValueWidget,
 )
 from qt_table_types import (
-    RowCellValue,
     RowClassNameDeciderParam,
     TableCellUiType,
     TableRowCellConfig,

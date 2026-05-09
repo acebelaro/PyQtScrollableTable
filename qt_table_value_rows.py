@@ -1,21 +1,9 @@
-from abc import ABC, abstractmethod
 from typing import Any, Callable, List, NamedTuple, Optional
 
-from PyQt6.QtGui import QShortcut, QKeySequence
-from PyQt6.QtWidgets import QGroupBox
 from PyQt6.QtCore import pyqtSignal
 
-from qt_table_header_rows import TableHeaderRows
-from qt_table_types import (
-    RowInfo,
-    TableConfig,
-    TableRowCellConfig,
-    TableRowCellValue,
-    TableRowCellValueUpdatedParam,
-)
+from qt_table_types import TableRowCellValue
 from qt_table_row import TableRow
-from qt_table_event import TableEvent, TableEventCollection, TableEventType
-from qt_table_value_rows_display import TableValueRowsDisplay
 
 ROW_INDEX_PLACEHOLDER_TOKEN = "%row_index%"
 
@@ -39,9 +27,9 @@ class TableValueRows:
         self._row_index_cell_value_creator = row_index_cell_value_creator
         self._row_cell_values_creator = row_cell_values_creator
 
-    # @property
-    # def rows(self) -> List[TableRow]:
-    #     return self._rows
+    @property
+    def rows(self) -> List[TableRow]:
+        return self._rows
 
     @property
     def row_count(self) -> int:
