@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import pyqtSignal
 
-from qt_header_rows import TableHeaderRows
+from qt_table_header_rows import TableHeaderRows
 from qt_table_types import (
     RowInfo,
     TableConfig,
