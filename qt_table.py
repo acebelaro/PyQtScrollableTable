@@ -198,7 +198,6 @@ class Table(ABC):
             new_data = self._create_data_from_row_cell_values(
                 cell_values=row_cell_value_updated_param.new_cell_values
             )
-            self._value_rows.get_row_by_id(row_id=row_cell_value_updated_param.row_id)
             revert_edit = TableEvent(
                 type=TableEventType.ROW_EDITED,
                 event_data=TableRowEditEventData(

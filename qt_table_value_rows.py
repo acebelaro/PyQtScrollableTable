@@ -2,15 +2,8 @@ from typing import Any, Callable, List, NamedTuple, Optional
 
 from PyQt6.QtCore import pyqtSignal
 
-from qt_table_types import TableRowCellValue
+from qt_table_types import RowInfo, TableRowCellValue
 from qt_table_row import TableRow
-
-ROW_INDEX_PLACEHOLDER_TOKEN = "%row_index%"
-
-
-class TableValueRowInfo(NamedTuple):
-    row: TableRow
-    row_index: int
 
 
 class TableValueRows:
@@ -59,7 +52,7 @@ class TableValueRows:
             del self._rows[row_index]
         return deleted_row
 
-    def get_row_by_id(self, row_id: str) -> Optional[TableValueRowInfo]:
+    def get_row_by_id(self, row_id: str) -> Optional[RowInfo]:
         def is_row_id_match(row: TableRow) -> bool:
             if row.id == row_id:
                 return True
@@ -72,7 +65,7 @@ class TableValueRows:
             if row.id != except_row_id and row.is_selected:
                 row.clear_selected_state()
 
-    def get_selected_row_info(self) -> Optional[TableValueRowInfo]:
+    def get_selected_row_info(self) -> Optional[RowInfo]:
         def is_selected_row(row: TableRow) -> bool:
             return row.is_selected
 
@@ -100,14 +93,14 @@ class TableValueRows:
 
     def _get_row_based_on_condition(
         self, condition: Callable[[TableRow], bool]
-    ) -> Optional[TableValueRowInfo]:
+    ) -> Optional[RowInfo]:
         row_index = 0
         while row_index < self.row_count:
             current_row = self._rows[row_index]
             if condition(current_row):
-                return TableValueRowInfo(
-                    row=current_row,
+                return RowInfo(
                     row_index=row_index,
+                    data=current_row.data,
                 )
             row_index = row_index + 1
         return None

@@ -18,7 +18,6 @@ from qt_table import (
     TableConfig,
     TableRowCellValue,
 )
-from qt_table_value_rows import TableValueRowInfo
 
 
 class SampleData(NamedTuple):
