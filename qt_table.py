@@ -7,11 +7,14 @@ from PyQt6.QtCore import pyqtSignal
 
 from qt_table_copy_cut_paste import TableCopyCutPaste
 from qt_table_header_rows import TableHeaderRows
+from qt_table_row_actions import RowActions
 from qt_table_types import (
     RowInfo,
     TableCreateAddRowParam,
     TableConfig,
     TableDeleteRowParam,
+    TableEvent,
+    TableEventType,
     TableRowCellConfig,
     TableRowCellValue,
     TableRowCellValueUpdatedParam,
@@ -19,14 +22,8 @@ from qt_table_types import (
     TableSwapRowsParam,
 )
 from qt_table_row import TableRow
-
-from qt_table_undo_redo import (
-    TableEvent,
-    TableEventType,
-    TableUndoRedo,
-    UndoRedoActions,
-)
-from qt_table_value_rows import TableValueRowInfo, TableValueRows
+from qt_table_undo_redo import TableUndoRedo
+from qt_table_value_rows import TableValueRows
 from qt_table_value_rows_display import TableValueRowsDisplay
 
 
@@ -61,21 +58,20 @@ class Table(ABC):
             row_index_cell_value_creator=self._create_row_index_cell_value,
             row_cell_values_creator=self._create_row_cell_values,
         )
-        undo_redo_actions = UndoRedoActions(
-            create_and_add_row_at_index=self._create_and_add_row_at_index,
-            delete_row=self._delete_row,
-            swap_rows=self._swap_rows,
-        )
-        self._undo_redo = TableUndoRedo(
-            actions=undo_redo_actions,
-            get_row_at_index=self._value_rows.get_row_at_index,
-        )
-        self._copy_cut_paste = TableCopyCutPaste(
+        row_actions = RowActions(
             selected_row_provider=self._selected_row_provider,
             create_and_add_row_at_index=self._create_and_add_row_at_index,
             delete_row=self._delete_row,
+            swap_rows=self._swap_rows,
             create_row_data_copy=self._create_row_data_copy,
             adjust_row_index_cells=self._value_rows.adjust_row_index_cells,
+        )
+        self._undo_redo = TableUndoRedo(
+            row_actions=row_actions,
+            get_row_at_index=self._value_rows.get_row_at_index,
+        )
+        self._copy_cut_paste = TableCopyCutPaste(
+            row_actions=row_actions,
             undo_redo=self._undo_redo,
         )
 
@@ -318,10 +314,6 @@ class Table(ABC):
             self._value_rows_display.add_row_at_index(
                 row=new_row, row_index=create_add_param.row_index
             )
-            if create_add_param.report_when_added:
-                self._on_row_added(
-                    row_index=create_add_param.row_index, data=new_row.data
-                )
             if self._config.select_new_row_added and not create_add_param.skip_select:
                 selected_row = self.selected_row
                 if selected_row:
@@ -332,6 +324,10 @@ class Table(ABC):
                 row_index=create_add_param.row_index,
                 data=new_row.data,
             )
+            if create_add_param.report_when_added:
+                self._on_row_added(
+                    row_index=create_add_param.row_index, data=new_row.data
+                )
         return row_added_event
 
     def _delete_row(self, delete_param: TableDeleteRowParam) -> Optional[TableEvent]:
@@ -439,8 +435,14 @@ class Table(ABC):
                 is_swapped = True
         return is_swapped
 
-    def _selected_row_provider(self) -> Optional[TableValueRowInfo]:
-        return self._value_rows.get_selected_row_info()
+    def _selected_row_provider(self) -> Optional[RowInfo]:
+        selected_row = self._value_rows.get_selected_row_info()
+        if selected_row:
+            return RowInfo(
+                row_index=selected_row.row_index,
+                data=selected_row.row.data,
+            )
+        return None
 
     @abstractmethod
     def _create_row_index_cell_value(
@@ -481,5 +483,5 @@ class Table(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def _create_row_data_copy(self, row_info: TableValueRowInfo) -> Any:
+    def _create_row_data_copy(self, row_info: RowInfo) -> Any:
         raise NotImplementedError()

@@ -201,8 +201,8 @@ class SampleTable(Table):
         )
         return msg_box.exec() == QMessageBox.StandardButton.Yes
 
-    def _create_row_data_copy(self, row_info: TableValueRowInfo) -> SampleData:
-        data: SampleData = row_info.row.data
+    def _create_row_data_copy(self, row_info: RowInfo) -> SampleData:
+        data: SampleData = row_info.data
         return SampleData(
             enabled=data.enabled,
             name=data.name,

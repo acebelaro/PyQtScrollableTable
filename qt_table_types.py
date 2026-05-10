@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, auto
 from typing import Any, Callable, List, NamedTuple, Optional
 
 from PyQt6.QtWidgets import QPushButton
@@ -113,3 +113,22 @@ class TableRowCellValueUpdatedParam(NamedTuple):
     current_row_data: Any
     updated_cell_index: int
     new_cell_values: List[TableRowCellValue]
+
+
+class TableEventType(Enum):
+    ROW_ADDED = auto()
+    ROW_DELETED = auto()
+    ROW_EDITED = auto()
+    ROW_MOVED_UP = auto()
+    ROW_MOVED_DOWN = auto()
+    ROW_CUT = auto()
+
+
+class TableEvent(NamedTuple):
+    type: TableEventType
+    row_index: int
+    data: Any
+    delete_row_index: Optional[int] = None  # for cut only
+
+    def to_str(self) -> str:
+        return f"{self.type.name}, {self.row_index}"
