@@ -15,9 +15,13 @@ from qt_table_types import (
     TableDeleteRowParam,
     TableEvent,
     TableEventType,
+    TableRowAddEventData,
     TableRowCellConfig,
     TableRowCellValue,
     TableRowCellValueUpdatedParam,
+    TableRowDeleteEventData,
+    TableRowEditEventData,
+    TableRowMovedEventData,
     TableShortcutKeys,
     TableSwapRowsParam,
 )
@@ -197,8 +201,10 @@ class Table(ABC):
             self._value_rows.get_row_by_id(row_id=row_cell_value_updated_param.row_id)
             revert_edit = TableEvent(
                 type=TableEventType.ROW_EDITED,
-                row_index=updated_row_info.row_index,
-                data=row_cell_value_updated_param.current_row_data,
+                event_data=TableRowEditEventData(
+                    row_index=updated_row_info.row_index,
+                    row_data=row_cell_value_updated_param.current_row_data,
+                ),
             )
             self._undo_redo.add_undo_event(event=revert_edit)
             self._value_rows.set_data_of_row(
@@ -241,8 +247,9 @@ class Table(ABC):
                 if is_swapped:
                     revert_swap = TableEvent(
                         type=TableEventType.ROW_MOVED_UP,
-                        row_index=selected_row_info.row_index,
-                        data=None,  # not used
+                        event_data=TableRowMovedEventData(
+                            row_index=selected_row_info.row_index,
+                        ),
                     )
                     self._undo_redo.add_undo_event(event=revert_swap)
             else:
@@ -265,8 +272,9 @@ class Table(ABC):
                 if is_swapped:
                     revert_swap = TableEvent(
                         type=TableEventType.ROW_MOVED_DOWN,
-                        row_index=selected_row_info.row_index,
-                        data=None,  # not used
+                        event_data=TableRowMovedEventData(
+                            row_index=selected_row_info.row_index,
+                        ),
                     )
                     self._undo_redo.add_undo_event(event=revert_swap)
             else:
@@ -321,8 +329,9 @@ class Table(ABC):
                 new_row.set_as_selected()
             row_added_event = TableEvent(
                 type=TableEventType.ROW_ADDED,
-                row_index=create_add_param.row_index,
-                data=new_row.data,
+                event_data=TableRowAddEventData(
+                    row_index=create_add_param.row_index,
+                ),
             )
             if create_add_param.report_when_added:
                 self._on_row_added(
@@ -368,8 +377,10 @@ class Table(ABC):
                         )
                     table_event = TableEvent(
                         type=TableEventType.ROW_DELETED,
-                        row_index=delete_param.row_index,
-                        data=data_of_deleted_row,
+                        event_data=TableRowDeleteEventData(
+                            row_index=delete_param.row_index,
+                            row_data=data_of_deleted_row,
+                        ),
                     )
                     if (
                         is_deleted_row_selected

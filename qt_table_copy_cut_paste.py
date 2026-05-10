@@ -7,6 +7,7 @@ from qt_table_types import (
     TableDeleteRowParam,
     TableEvent,
     TableEventType,
+    TableRowCutEventData,
 )
 from qt_table_undo_redo import TableUndoRedo
 
@@ -76,9 +77,11 @@ class TableCopyCutPaste(TableRowAction):
                         # create cut event
                         cut_event = TableEvent(
                             type=TableEventType.ROW_CUT,
-                            row_index=destination_row_index,
-                            data=self._copy_row.data,
-                            delete_row_index=delete_row_index,
+                            event_data=TableRowCutEventData(
+                                deleted_row_index=delete_row_index,
+                                added_row_index=destination_row_index,
+                                data=self._copy_row.data,
+                            ),
                         )
                         self._undo_redo.add_undo_event(event=cut_event)
                     self.reset()

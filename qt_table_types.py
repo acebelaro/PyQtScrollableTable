@@ -124,11 +124,36 @@ class TableEventType(Enum):
     ROW_CUT = auto()
 
 
+class TableRowAddEventData(NamedTuple):
+    row_index: int
+
+
+class TableRowEditEventData(NamedTuple):
+    row_index: int
+    row_data: Any
+
+
+class TableRowDeleteEventData(NamedTuple):
+    row_index: int
+    row_data: Any
+
+
+class TableRowMovedEventData(NamedTuple):
+    row_index: int
+
+
+class TableRowCutEventData(NamedTuple):
+    deleted_row_index: int
+    added_row_index: int
+    data: Any
+
+
 class TableEvent(NamedTuple):
     type: TableEventType
-    row_index: int
-    data: Any
-    delete_row_index: Optional[int] = None  # for cut only
-
-    def to_str(self) -> str:
-        return f"{self.type.name}, {self.row_index}"
+    event_data: (
+        TableRowAddEventData
+        | TableRowEditEventData
+        | TableRowDeleteEventData
+        | TableRowMovedEventData
+        | TableRowCutEventData
+    )

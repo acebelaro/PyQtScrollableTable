@@ -142,64 +142,70 @@ class SampleTable(Table):
         )
 
     def _on_row_added(self, row_index: int, data: int) -> None:
-        msg_box = QMessageBox(
-            QMessageBox.Icon.Information,
-            "Row Added",
-            f"Added row {row_index}",
-            QMessageBox.StandardButton.Yes,
-        )
-        msg_box.exec()
+        pass
+        # msg_box = QMessageBox(
+        #     QMessageBox.Icon.Information,
+        #     "Row Added",
+        #     f"Added row {row_index}",
+        #     QMessageBox.StandardButton.Yes,
+        # )
+        # msg_box.exec()
 
     def _on_row_deleted(self, row_index: int, data: int) -> None:
-        msg_box = QMessageBox(
-            QMessageBox.Icon.Information,
-            "Row Deleted",
-            f"Deleted row {row_index}",
-            QMessageBox.StandardButton.Yes,
-        )
-        msg_box.exec()
+        pass
+        # msg_box = QMessageBox(
+        #     QMessageBox.Icon.Information,
+        #     "Row Deleted",
+        #     f"Deleted row {row_index}",
+        #     QMessageBox.StandardButton.Yes,
+        # )
+        # msg_box.exec()
 
     def _on_rows_swapped(
         self,
         lower_row_index: int,
         upper_row_index: int,
     ):
-        msg_box = QMessageBox(
-            QMessageBox.Icon.Information,
-            "Rows Swapped",
-            f"Swapped rows {lower_row_index} and {upper_row_index}",
-            QMessageBox.StandardButton.Yes,
-        )
-        msg_box.exec()
+        pass
+        # msg_box = QMessageBox(
+        #     QMessageBox.Icon.Information,
+        #     "Rows Swapped",
+        #     f"Swapped rows {lower_row_index} and {upper_row_index}",
+        #     QMessageBox.StandardButton.Yes,
+        # )
+        # msg_box.exec()
 
     def _confirm_row_addition(self, row_info: RowInfo) -> bool:
-        msg_box = QMessageBox(
-            QMessageBox.Icon.Question,
-            "Confirm Add",
-            "Confirm Add?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        return msg_box.exec() == QMessageBox.StandardButton.Yes
+        return True
+        # msg_box = QMessageBox(
+        #     QMessageBox.Icon.Question,
+        #     "Confirm Add",
+        #     "Confirm Add?",
+        #     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        # )
+        # return msg_box.exec() == QMessageBox.StandardButton.Yes
 
     def _confirm_row_deletion(self, row_info: RowInfo) -> bool:
-        msg_box = QMessageBox(
-            QMessageBox.Icon.Question,
-            "Confirm Delete",
-            "Confirm Delete?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        return msg_box.exec() == QMessageBox.StandardButton.Yes
+        return True
+        # msg_box = QMessageBox(
+        #     QMessageBox.Icon.Question,
+        #     "Confirm Delete",
+        #     "Confirm Delete?",
+        #     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        # )
+        # return msg_box.exec() == QMessageBox.StandardButton.Yes
 
     def _confirm_row_swap(
         self, upper_row_info: RowInfo, lower_row_info: RowInfo
     ) -> bool:
-        msg_box = QMessageBox(
-            QMessageBox.Icon.Question,
-            "Confirm Swap",
-            "Confirm Swap?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        return msg_box.exec() == QMessageBox.StandardButton.Yes
+        return True
+        # msg_box = QMessageBox(
+        #     QMessageBox.Icon.Question,
+        #     "Confirm Swap",
+        #     "Confirm Swap?",
+        #     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        # )
+        # return msg_box.exec() == QMessageBox.StandardButton.Yes
 
     def _create_row_data_copy(self, row_info: RowInfo) -> SampleData:
         data: SampleData = row_info.data

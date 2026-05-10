@@ -1,4 +1,4 @@
-from typing import List, Optional, Callable
+from typing import Any, List, Optional, Callable
 
 from qt_table_row import TableRow
 from qt_table_row_actions import RowActions, TableRowAction
@@ -7,6 +7,11 @@ from qt_table_types import (
     TableDeleteRowParam,
     TableEvent,
     TableEventType,
+    TableRowAddEventData,
+    TableRowCutEventData,
+    TableRowDeleteEventData,
+    TableRowEditEventData,
+    TableRowMovedEventData,
     TableSwapRowsParam,
 )
 
@@ -24,27 +29,23 @@ class TableUndoRedo(TableRowAction):
         super().__init__(row_actions=row_actions)
         self._get_row_at_index = get_row_at_index
         self._max_count = max_count
-        self._undo_events: List[TableEvent] = []
-        self._redo_events: List[TableEvent] = []
+        self._undo_events: List[Any] = []
+        self._redo_events: List[Any] = []
 
-    def add_undo_event(self, event: TableEvent):
+    def add_undo_event(self, event: Any):
         self._undo_events.append(event)
-        print(f"Added undo {event.to_str()}")
-
         if len(self._undo_events) > self._max_count:
             del self._undo_events[0]
 
-    def add_redo_event(self, event: TableEvent):
+    def add_redo_event(self, event: Any):
         self._redo_events.append(event)
-        print(f"Added redo {event.to_str()}")
-
         if len(self._redo_events) > self._max_count:
             del self._redo_events[0]
 
-    def get_last_undo_event(self) -> Optional[TableEvent]:
+    def get_last_undo_event(self) -> Optional[Any]:
         return TableUndoRedo._get_last_event_from_list(events=self._undo_events)
 
-    def get_last_redo_event(self) -> Optional[TableEvent]:
+    def get_last_redo_event(self) -> Optional[Any]:
         return TableUndoRedo._get_last_event_from_list(events=self._redo_events)
 
     def clear(self):
@@ -70,21 +71,20 @@ class TableUndoRedo(TableRowAction):
                 self.add_undo_event(event=row_event_for_undo)
 
     def _execute_revert(self, revert_event: TableEvent) -> Optional[TableEvent]:
-        print("_execute_revert()")
-        print(revert_event)
         revert_revert_event = None
         if revert_event.type == TableEventType.ROW_ADDED:
-            # delete that row
+            add_event_data: TableRowAddEventData = revert_event.event_data
             delete_param = TableDeleteRowParam(
-                row_index=revert_event.row_index,
+                row_index=add_event_data.row_index,
                 confirm_before_deleting=False,
                 report_when_deleted=False,
             )
             revert_revert_event = self._row_actions.delete_row(delete_param)
         elif revert_event.type == TableEventType.ROW_DELETED:
+            delete_event_data: TableRowDeleteEventData = revert_event.event_data
             create_add_param = TableCreateAddRowParam(
-                row_index=revert_event.row_index,
-                data=revert_event.data,
+                row_index=delete_event_data.row_index,
+                data=delete_event_data.row_data,
                 skip_select=True,
                 confirm_before_adding=False,
                 report_when_added=False,
@@ -93,8 +93,9 @@ class TableUndoRedo(TableRowAction):
                 create_add_param
             )
         elif revert_event.type == TableEventType.ROW_EDITED:
+            edit_event_data: TableRowEditEventData = revert_event.event_data
             # update data in cell
-            edit_row_index = revert_event.row_index
+            edit_row_index = edit_event_data.row_index
             current_row = self._get_row_at_index(edit_row_index)
             if current_row:
                 # replace with new row to avoid on update triggers
@@ -102,14 +103,14 @@ class TableUndoRedo(TableRowAction):
                 is_selected = current_row.is_selected
                 current_row_data = current_row.data
                 delete_param = TableDeleteRowParam(
-                    row_index=revert_event.row_index,
+                    row_index=edit_row_index,
                     confirm_before_deleting=False,
                     report_when_deleted=False,
                 )
                 revert_revert_event = self._row_actions.delete_row(delete_param)
                 create_add_param = TableCreateAddRowParam(
                     row_index=edit_row_index,
-                    data=revert_event.data,
+                    data=edit_event_data.row_data,
                     skip_select=True,
                     confirm_before_adding=False,
                     report_when_added=False,
@@ -117,19 +118,21 @@ class TableUndoRedo(TableRowAction):
                 self._row_actions.create_and_add_row_at_index(create_add_param)
                 revert_revert_event = TableEvent(
                     type=TableEventType.ROW_EDITED,
-                    row_index=edit_row_index,
-                    data=current_row_data,
+                    event_data=TableRowEditEventData(
+                        row_index=edit_row_index,
+                        row_data=current_row_data,
+                    ),
                 )
                 if is_selected:
                     edited_row = self._get_row_at_index(edit_row_index)
                     if edited_row:
                         edited_row.set_as_selected()
         elif revert_event.type == TableEventType.ROW_MOVED_UP:
-            # move row down
-            upper_row_index = revert_event.row_index - 1
+            moved_event_data: TableRowMovedEventData = revert_event.event_data
+            upper_row_index = moved_event_data.row_index - 1
             swap_param = TableSwapRowsParam(
                 upper_row_index=upper_row_index,
-                lower_row_index=revert_event.row_index,
+                lower_row_index=moved_event_data.row_index,
                 confirm_before_swapping=False,
                 report_when_swapped=False,
             )
@@ -137,14 +140,15 @@ class TableUndoRedo(TableRowAction):
             if is_swapped:
                 revert_revert_event = TableEvent(
                     type=TableEventType.ROW_MOVED_UP,
-                    row_index=revert_event.row_index,
-                    data=None,  # not used
+                    event_data=TableRowMovedEventData(
+                        row_index=moved_event_data.row_index,
+                    ),
                 )
         elif revert_event.type == TableEventType.ROW_MOVED_DOWN:
-            # move row up
-            lower_row_index = revert_event.row_index + 1
+            moved_event_data: TableRowMovedEventData = revert_event.event_data
+            lower_row_index = moved_event_data.row_index + 1
             swap_param = TableSwapRowsParam(
-                upper_row_index=revert_event.row_index,
+                upper_row_index=moved_event_data.row_index,
                 lower_row_index=lower_row_index,
                 confirm_before_swapping=False,
                 report_when_swapped=False,
@@ -153,38 +157,42 @@ class TableUndoRedo(TableRowAction):
             if is_swapped:
                 revert_revert_event = TableEvent(
                     type=TableEventType.ROW_MOVED_DOWN,
-                    row_index=revert_event.row_index,
-                    data=None,  # not used
+                    event_data=TableRowMovedEventData(
+                        row_index=moved_event_data.row_index,
+                    ),
                 )
         elif revert_event.type == TableEventType.ROW_CUT:
+            cut_data: TableRowCutEventData = revert_event.event_data
+
+            # re-add deleted row
             create_add_param = TableCreateAddRowParam(
-                row_index=revert_event.delete_row_index,
-                data=revert_event.data,
+                row_index=cut_data.deleted_row_index,
+                data=cut_data.data,
                 skip_select=True,
                 confirm_before_adding=False,
                 report_when_added=False,
             )
-            add_event = self._row_actions.create_and_add_row_at_index(create_add_param)
+            self._row_actions.create_and_add_row_at_index(create_add_param)
+
+            # delete added row
             delete_param = TableDeleteRowParam(
-                row_index=revert_event.row_index,
+                row_index=cut_data.added_row_index,
                 confirm_before_deleting=False,
                 report_when_deleted=False,
             )
             self._row_actions.delete_row(delete_param)
             revert_revert_event = TableEvent(
                 type=TableEventType.ROW_CUT,
-                row_index=revert_event.delete_row_index,
-                data=add_event.data,
-                delete_row_index=revert_event.row_index,
+                event_data=TableRowCutEventData(
+                    deleted_row_index=cut_data.added_row_index,
+                    added_row_index=cut_data.deleted_row_index,
+                    data=cut_data.data,
+                ),
             )
-            start_row_index_adjustment = revert_event.delete_row_index
-            if revert_event.row_index < start_row_index_adjustment:
-                start_row_index_adjustment = revert_event.row_index
-            self._row_actions.adjust_row_index_cells(start_row_index_adjustment)
         return revert_revert_event
 
     @staticmethod
-    def _get_last_event_from_list(events: List[TableEvent]) -> Optional[TableEvent]:
+    def _get_last_event_from_list(events: List[Any]) -> Optional[Any]:
         event_count = len(events)
         if event_count > 0:
             last_event = events[event_count - 1]
