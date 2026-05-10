@@ -157,27 +157,30 @@ class TableUndoRedo(TableRowAction):
                     data=None,  # not used
                 )
         elif revert_event.type == TableEventType.ROW_CUT:
-            pass
-            # create_add_param = TableCreateAddRowParam(
-            #     row_index=revert_event.delete_row_index,
-            #     data=revert_event.data,
-            #     skip_select=True,
-            #     confirm_before_adding=False,
-            #     report_when_added=False,
-            # )
-            # add_event = self._actions.create_and_add_row_at_index(create_add_param)
-            # delete_param = TableDeleteRowParam(
-            #     row_index=revert_event.row_index,
-            #     confirm_before_deleting=False,
-            #     report_when_deleted=False,
-            # )
-            # self._actions.delete_row(delete_param)
-            # revert_revert_event = TableEvent(
-            #     type=TableEventType.ROW_CUT,
-            #     row_index=revert_event.delete_row_index,
-            #     data=add_event.data,
-            #     delete_row_index=revert_event.row_index,
-            # )
+            create_add_param = TableCreateAddRowParam(
+                row_index=revert_event.delete_row_index,
+                data=revert_event.data,
+                skip_select=True,
+                confirm_before_adding=False,
+                report_when_added=False,
+            )
+            add_event = self._row_actions.create_and_add_row_at_index(create_add_param)
+            delete_param = TableDeleteRowParam(
+                row_index=revert_event.row_index,
+                confirm_before_deleting=False,
+                report_when_deleted=False,
+            )
+            self._row_actions.delete_row(delete_param)
+            revert_revert_event = TableEvent(
+                type=TableEventType.ROW_CUT,
+                row_index=revert_event.delete_row_index,
+                data=add_event.data,
+                delete_row_index=revert_event.row_index,
+            )
+            start_row_index_adjustment = revert_event.delete_row_index
+            if revert_event.row_index < start_row_index_adjustment:
+                start_row_index_adjustment = revert_event.row_index
+            self._row_actions.adjust_row_index_cells(start_row_index_adjustment)
         return revert_revert_event
 
     @staticmethod
