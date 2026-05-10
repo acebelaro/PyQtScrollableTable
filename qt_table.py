@@ -446,13 +446,7 @@ class Table(ABC):
         return is_swapped
 
     def _selected_row_provider(self) -> Optional[RowInfo]:
-        selected_row = self._value_rows.get_selected_row_info()
-        if selected_row:
-            return RowInfo(
-                row_index=selected_row.row_index,
-                data=selected_row.row.data,
-            )
-        return None
+        return self._value_rows.get_selected_row_info()
 
     @abstractmethod
     def _create_row_index_cell_value(

@@ -109,6 +109,7 @@ class TableUndoRedo(TableRowAction):
             report_when_deleted=False,
         )
         revert_add = self._row_actions.delete_row(delete_param)
+        self._row_actions.adjust_row_index_cells(add_event_data.row_index)
         return revert_add
 
     def _revert_row_delete(
@@ -122,6 +123,7 @@ class TableUndoRedo(TableRowAction):
             report_when_added=False,
         )
         revert_delete = self._row_actions.create_and_add_row_at_index(create_add_param)
+        self._row_actions.adjust_row_index_cells(delete_event_data.row_index)
         return revert_delete
 
     def _revert_row_edit(self, edit_event_data: TableRowEditEventData) -> TableEvent:
@@ -180,6 +182,30 @@ class TableUndoRedo(TableRowAction):
                     row_index=moved_event_data.row_index,
                 ),
             )
+            self._row_actions.adjust_row_index_cells(upper_row_index)
+        return revert_swap
+
+    def _revert_row_move_down(
+        self,
+        moved_event_data: TableRowMovedEventData,
+    ) -> TableEvent:
+        revert_swap = None
+        lower_row_index = moved_event_data.row_index + 1
+        swap_param = TableSwapRowsParam(
+            upper_row_index=moved_event_data.row_index,
+            lower_row_index=lower_row_index,
+            confirm_before_swapping=False,
+            report_when_swapped=False,
+        )
+        is_swapped = self._row_actions.swap_rows(swap_param)
+        if is_swapped:
+            revert_swap = TableEvent(
+                type=TableEventType.ROW_MOVED_DOWN,
+                event_data=TableRowMovedEventData(
+                    row_index=moved_event_data.row_index,
+                ),
+            )
+            self._row_actions.adjust_row_index_cells(moved_event_data.row_index)
         return revert_swap
 
     def _revert_row_cut(
@@ -212,29 +238,11 @@ class TableUndoRedo(TableRowAction):
                 data=cut_event_data.data,
             ),
         )
+        adjust_row_index = cut_event_data.added_row_index
+        if cut_event_data.deleted_row_index < adjust_row_index:
+            adjust_row_index = cut_event_data.deleted_row_index
+        self._row_actions.adjust_row_index_cells(adjust_row_index)
         return revert_row_cut
-
-    def _revert_row_move_down(
-        self,
-        moved_event_data: TableRowMovedEventData,
-    ) -> TableEvent:
-        revert_swap = None
-        lower_row_index = moved_event_data.row_index + 1
-        swap_param = TableSwapRowsParam(
-            upper_row_index=moved_event_data.row_index,
-            lower_row_index=lower_row_index,
-            confirm_before_swapping=False,
-            report_when_swapped=False,
-        )
-        is_swapped = self._row_actions.swap_rows(swap_param)
-        if is_swapped:
-            revert_swap = TableEvent(
-                type=TableEventType.ROW_MOVED_DOWN,
-                event_data=TableRowMovedEventData(
-                    row_index=moved_event_data.row_index,
-                ),
-            )
-        return revert_swap
 
     @staticmethod
     def _get_last_event_from_list(events: List[Any]) -> Optional[Any]:
