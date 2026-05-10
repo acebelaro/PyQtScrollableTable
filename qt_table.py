@@ -5,6 +5,7 @@ from PyQt6.QtGui import QShortcut, QKeySequence
 from PyQt6.QtWidgets import QGroupBox
 from PyQt6.QtCore import pyqtSignal
 
+from qt_table_copy_cut_paste import TableCopyCutPaste
 from qt_table_header_rows import TableHeaderRows
 from qt_table_types import (
     RowInfo,
@@ -14,6 +15,7 @@ from qt_table_types import (
     TableRowCellConfig,
     TableRowCellValue,
     TableRowCellValueUpdatedParam,
+    TableShortcutKeys,
     TableSwapRowsParam,
 )
 from qt_table_row import TableRow
@@ -24,7 +26,7 @@ from qt_table_undo_redo import (
     TableUndoRedo,
     UndoRedoActions,
 )
-from qt_table_value_rows import TableValueRows
+from qt_table_value_rows import TableValueRowInfo, TableValueRows
 from qt_table_value_rows_display import TableValueRowsDisplay
 
 
@@ -59,13 +61,22 @@ class Table(ABC):
             row_index_cell_value_creator=self._create_row_index_cell_value,
             row_cell_values_creator=self._create_row_cell_values,
         )
+        undo_redo_actions = UndoRedoActions(
+            create_and_add_row_at_index=self._create_and_add_row_at_index,
+            delete_row=self._delete_row,
+            swap_rows=self._swap_rows,
+        )
         self._undo_redo = TableUndoRedo(
-            actions=UndoRedoActions(
-                create_and_add_row_at_index=self._create_and_add_row_at_index,
-                delete_row=self._delete_row,
-                swap_rows=self._swap_rows,
-            ),
+            actions=undo_redo_actions,
             get_row_at_index=self._value_rows.get_row_at_index,
+        )
+        self._copy_cut_paste = TableCopyCutPaste(
+            selected_row_provider=self._selected_row_provider,
+            create_and_add_row_at_index=self._create_and_add_row_at_index,
+            delete_row=self._delete_row,
+            create_row_data_copy=self._create_row_data_copy,
+            adjust_row_index_cells=self._value_rows.adjust_row_index_cells,
+            undo_redo=self._undo_redo,
         )
 
         self._row_cell_configs: List[TableRowCellConfig] = (
@@ -83,18 +94,9 @@ class Table(ABC):
                     self._move_down_selected
                 )
 
-        if table_config.shortcut_keys and table_config.shortcut_keys.ctrl_z_y_undo_redo:
-            undo_shortcut = QShortcut(
-                QKeySequence("Ctrl+Z"),
-                self._groupbox_container,
-            )
-            undo_shortcut.activated.connect(self._undo_redo.undo)
-
-            redo_shortcut = QShortcut(
-                QKeySequence("Ctrl+Y"),
-                self._groupbox_container,
-            )
-            redo_shortcut.activated.connect(self._undo_redo.redo)
+        shortcut_keys = table_config.shortcut_keys
+        if shortcut_keys:
+            self._setup_shortcut_keys(shortcut_keys=shortcut_keys)
 
     @property
     def rows(self) -> List[TableRow]:
@@ -124,14 +126,15 @@ class Table(ABC):
         )
 
     def add_new_row_data_at_index(self, row_index: int, data: Any):
+        create_add_param = TableCreateAddRowParam(
+            row_index=row_index,
+            data=data,
+            skip_select=False,
+            confirm_before_adding=True,
+            report_when_added=True,
+        )
         row_added_event = self._create_and_add_row_at_index(
-            add_param=TableCreateAddRowParam(
-                row_index=row_index,
-                data=data,
-                skip_select=False,
-                confirm_before_adding=True,
-                report_when_added=True,
-            )
+            create_add_param=create_add_param
         )
         if row_added_event:
             self._undo_redo.add_undo_event(event=row_added_event)
@@ -152,6 +155,38 @@ class Table(ABC):
             )
             cell_index = cell_index + 1
         return row_cell_configs
+
+    def _setup_shortcut_keys(self, shortcut_keys: TableShortcutKeys):
+        if shortcut_keys.ctrl_z_y_undo_redo:
+            undo_shortcut = QShortcut(
+                QKeySequence("Ctrl+Z"),
+                self._groupbox_container,
+            )
+            undo_shortcut.activated.connect(self._undo_redo.undo)
+
+            redo_shortcut = QShortcut(
+                QKeySequence("Ctrl+Y"),
+                self._groupbox_container,
+            )
+            redo_shortcut.activated.connect(self._undo_redo.redo)
+        if shortcut_keys.ctrl_c_x_v_copy_cut_paste:
+            copy_shortcut = QShortcut(
+                QKeySequence("Ctrl+C"),
+                self._groupbox_container,
+            )
+            copy_shortcut.activated.connect(self._copy_cut_paste.set_copy)
+
+            redo_shortcut = QShortcut(
+                QKeySequence("Ctrl+X"),
+                self._groupbox_container,
+            )
+            redo_shortcut.activated.connect(self._copy_cut_paste.set_cut)
+
+            redo_shortcut = QShortcut(
+                QKeySequence("Ctrl+V"),
+                self._groupbox_container,
+            )
+            redo_shortcut.activated.connect(self._copy_cut_paste.execute_paste)
 
     def _on_value_cell_updated(
         self, row_cell_value_updated_param: TableRowCellValueUpdatedParam
@@ -260,39 +295,41 @@ class Table(ABC):
 
     def _create_and_add_row_at_index(
         self,
-        add_param: TableCreateAddRowParam,
+        create_add_param: TableCreateAddRowParam,
     ) -> Optional[TableEvent]:
         row_added_event = None
         proceed_to_add = True
         if (
-            add_param.confirm_before_adding
+            create_add_param.confirm_before_adding
             and self._config.before_update_confirmers
             and self._config.before_update_confirmers.confirm_row_addition
         ):
             proceed_to_add = self._config.before_update_confirmers.confirm_row_addition(
                 RowInfo(
-                    row_index=add_param.row_index,
-                    data=add_param.data,
+                    row_index=create_add_param.row_index,
+                    data=create_add_param.data,
                 )
             )
         if proceed_to_add:
             new_row = self._create_row(
-                row_index=add_param.row_index, data=add_param.data
+                row_index=create_add_param.row_index, data=create_add_param.data
             )
-            self._value_rows.add_row(row=new_row, row_index=add_param.row_index)
+            self._value_rows.add_row(row=new_row, row_index=create_add_param.row_index)
             self._value_rows_display.add_row_at_index(
-                row=new_row, row_index=add_param.row_index
+                row=new_row, row_index=create_add_param.row_index
             )
-            if add_param.report_when_added:
-                self._on_row_added(row_index=add_param.row_index, data=new_row.data)
-            if self._config.select_new_row_added and not add_param.skip_select:
+            if create_add_param.report_when_added:
+                self._on_row_added(
+                    row_index=create_add_param.row_index, data=new_row.data
+                )
+            if self._config.select_new_row_added and not create_add_param.skip_select:
                 selected_row = self.selected_row
                 if selected_row:
                     selected_row.clear_selected_state()
                 new_row.set_as_selected()
             row_added_event = TableEvent(
                 type=TableEventType.ROW_ADDED,
-                row_index=add_param.row_index,
+                row_index=create_add_param.row_index,
                 data=new_row.data,
             )
         return row_added_event
@@ -402,6 +439,9 @@ class Table(ABC):
                 is_swapped = True
         return is_swapped
 
+    def _selected_row_provider(self) -> Optional[TableValueRowInfo]:
+        return self._value_rows.get_selected_row_info()
+
     @abstractmethod
     def _create_row_index_cell_value(
         self,
@@ -438,4 +478,8 @@ class Table(ABC):
         lower_row_index: int,
         upper_row_index: int,
     ):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def _create_row_data_copy(self, row_info: TableValueRowInfo) -> Any:
         raise NotImplementedError()

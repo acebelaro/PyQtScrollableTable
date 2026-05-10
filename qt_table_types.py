@@ -73,6 +73,7 @@ class TableValueRowConfig(NamedTuple):
 
 class TableShortcutKeys(NamedTuple):
     ctrl_z_y_undo_redo: Optional[bool] = False
+    ctrl_c_x_v_copy_cut_paste: Optional[bool] = True
 
 
 class TableCreateAddRowParam(NamedTuple):

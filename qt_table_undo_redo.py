@@ -106,14 +106,16 @@ class TableUndoRedo:
             )
             revert_revert_event = self._actions.delete_row(delete_param)
         elif revert_event.type == TableEventType.ROW_DELETED:
-            add_param = TableCreateAddRowParam(
+            create_add_param = TableCreateAddRowParam(
                 row_index=revert_event.row_index,
                 data=revert_event.data,
                 skip_select=True,
                 confirm_before_adding=False,
                 report_when_added=False,
             )
-            revert_revert_event = self._actions.create_and_add_row_at_index(add_param)
+            revert_revert_event = self._actions.create_and_add_row_at_index(
+                create_add_param
+            )
         elif revert_event.type == TableEventType.ROW_EDITED:
             # update data in cell
             edit_row_index = revert_event.row_index
@@ -129,14 +131,14 @@ class TableUndoRedo:
                     report_when_deleted=False,
                 )
                 revert_revert_event = self._actions.delete_row(delete_param)
-                add_param = TableCreateAddRowParam(
+                create_add_param = TableCreateAddRowParam(
                     row_index=edit_row_index,
                     data=revert_event.data,
                     skip_select=True,
                     confirm_before_adding=False,
                     report_when_added=False,
                 )
-                self._actions.create_and_add_row_at_index(add_param)
+                self._actions.create_and_add_row_at_index(create_add_param)
                 revert_revert_event = TableEvent(
                     type=TableEventType.ROW_EDITED,
                     row_index=edit_row_index,

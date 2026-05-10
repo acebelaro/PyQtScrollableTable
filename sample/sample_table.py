@@ -18,6 +18,7 @@ from qt_table import (
     TableConfig,
     TableRowCellValue,
 )
+from qt_table_value_rows import TableValueRowInfo
 
 
 class SampleData(NamedTuple):
@@ -199,3 +200,11 @@ class SampleTable(Table):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         return msg_box.exec() == QMessageBox.StandardButton.Yes
+
+    def _create_row_data_copy(self, row_info: TableValueRowInfo) -> SampleData:
+        data: SampleData = row_info.row.data
+        return SampleData(
+            enabled=data.enabled,
+            name=data.name,
+            value=data.value,
+        )
