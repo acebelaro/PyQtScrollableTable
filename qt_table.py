@@ -439,8 +439,14 @@ class Table(ABC):
             proceed_to_swap = True
             if swap_param.confirm_before_swapping:
                 proceed_to_swap = self._confirm_swap_rows(
-                    upper_row=upper_row,
-                    lower_row=lower_row,
+                    upper_row=RowInfo(
+                        row_index=upper_row_index,
+                        data=upper_row.data,
+                    ),
+                    lower_row=RowInfo(
+                        row_index=lower_row_index,
+                        data=lower_row.data,
+                    ),
                 )
             if proceed_to_swap:
                 deleted_row = self._value_rows.delete_row_at_index(

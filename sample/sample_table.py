@@ -208,7 +208,7 @@ class SampleTable(Table):
             msg_box = QMessageBox(
                 QMessageBox.Icon.Question,
                 "Confirm Swap",
-                "Confirm Swap?",
+                f"Confirm Swap: {upper_row_info.row_index} <-> {lower_row_info.row_index}?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             return msg_box.exec() == QMessageBox.StandardButton.Yes
