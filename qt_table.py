@@ -417,15 +417,17 @@ class Table(ABC):
                         )
         return table_event
 
-    def _confirm_swap_rows(self, upper_row: RowInfo, lower_row: RowInfo) -> bool:
+    def _confirm_swap_rows(
+        self, upper_row_info: RowInfo, lower_row_info: RowInfo
+    ) -> bool:
         proceed_to_swap = True
         if (
             self._before_update_confirmers
             and self._before_update_confirmers.confirm_row_swap
         ):
             proceed_to_swap = self._before_update_confirmers.confirm_row_swap(
-                upper_row,
-                lower_row,
+                upper_row_info,
+                lower_row_info,
             )
         return proceed_to_swap
 
@@ -436,17 +438,19 @@ class Table(ABC):
         upper_row = self._value_rows.get_row_at_index(row_index=upper_row_index)
         lower_row = self._value_rows.get_row_at_index(row_index=lower_row_index)
         if upper_row and lower_row:
+            upper_row_info = RowInfo(
+                row_index=upper_row_index,
+                data=upper_row.data,
+            )
+            lower_row_info = RowInfo(
+                row_index=lower_row_index,
+                data=lower_row.data,
+            )
             proceed_to_swap = True
             if swap_param.confirm_before_swapping:
                 proceed_to_swap = self._confirm_swap_rows(
-                    upper_row=RowInfo(
-                        row_index=upper_row_index,
-                        data=upper_row.data,
-                    ),
-                    lower_row=RowInfo(
-                        row_index=lower_row_index,
-                        data=lower_row.data,
-                    ),
+                    upper_row_info=upper_row_info,
+                    lower_row_info=lower_row_info,
                 )
             if proceed_to_swap:
                 deleted_row = self._value_rows.delete_row_at_index(
@@ -464,8 +468,8 @@ class Table(ABC):
                 self._value_rows.adjust_row_index_cells(start_row_index=upper_row_index)
                 if swap_param.report_when_swapped:
                     self._on_rows_swapped(
-                        lower_row_index=lower_row_index,
-                        upper_row_index=upper_row_index,
+                        upper_row_info=upper_row_info,
+                        lower_row_info=lower_row_info,
                     )
                 is_swapped = True
         return is_swapped
@@ -506,8 +510,8 @@ class Table(ABC):
     @abstractmethod
     def _on_rows_swapped(
         self,
-        lower_row_index: int,
-        upper_row_index: int,
+        upper_row_info: RowInfo,
+        lower_row_info: RowInfo,
     ):
         raise NotImplementedError()
 

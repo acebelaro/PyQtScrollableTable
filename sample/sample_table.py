@@ -167,14 +167,14 @@ class SampleTable(Table):
 
     def _on_rows_swapped(
         self,
-        lower_row_index: int,
-        upper_row_index: int,
+        upper_row_info: RowInfo,
+        lower_row_info: RowInfo,
     ):
         if self._report_events:
             msg_box = QMessageBox(
                 QMessageBox.Icon.Information,
                 "Rows Swapped",
-                f"Swapped rows {lower_row_index} and {upper_row_index}",
+                f"Swapped rows {upper_row_info.row_index} and {lower_row_info.row_index}",
                 QMessageBox.StandardButton.Yes,
             )
             msg_box.exec()
