@@ -1,3 +1,44 @@
+"""
+Module defining all type definitions and configuration classes for the table system.
+
+This module contains all the enums, named tuples, and configuration classes used
+throughout the PyQtScrollableTable system. It provides:
+
+- Cell UI type definitions (textbox, checkbox, label, row index)
+- Configuration classes for table, columns, headers, and rows
+- Event types and event data for undo/redo operations
+- Parameter classes for row operations (create, delete, swap)
+- Callback type definitions for customization
+
+The types defined here are used by all other modules in the table system,
+providing a consistent interface for configuration and data exchange.
+
+Classes:
+    TableCellUiType: Enumeration of cell UI types
+    TableRowCellConfig: Configuration for individual cells within a row
+    TableButtonControls: Button controls for row operations
+    RowInfo: Information about a row (index and data)
+    TableRowCellValue: Value of a single cell within a row
+    BeforeUpdateConfirmers: Callbacks for confirming row operations
+    TableColumnConfig: Configuration for table columns
+    TableHeaderRowConfig: Configuration for the header row
+    TableElemClassStyle: CSS class and styles for styling elements
+    RowClassNameDeciderParam: Parameter for dynamic row class name decisions
+    TableValueRowConfig: Configuration for value rows
+    TableShortcutKeys: Configuration for keyboard shortcuts
+    TableCreateAddRowParam: Parameters for creating and adding rows
+    TableDeleteRowParam: Parameters for deleting rows
+    TableSwapRowsParam: Parameters for swapping rows
+    TableConfig: Main configuration class for the entire table
+    TableRowCellValueUpdatedParam: Parameter for cell value update events
+    TableEventType: Enumeration of event types for undo/redo
+    TableRowAddEventData: Event data for row addition
+    TableRowEditEventData: Event data for row editing
+    TableRowDeleteEventData: Event data for row deletion
+    TableRowMovedEventData: Event data for row movement
+    TableRowCutEventData: Event data for cut operations
+    TableEvent: Complete event structure for undo/redo system
+"""
 from enum import Enum, auto
 from typing import Any, Callable, List, NamedTuple, Optional
 

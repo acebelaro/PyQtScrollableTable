@@ -1,4 +1,24 @@
-from typing import Any, Callable, List, NamedTuple, Optional
+"""
+Module for managing the collection of value rows in the table.
+
+This module provides the `TableValueRows` class that manages the data layer
+of the table, handling the storage, retrieval, and manipulation of table rows.
+It serves as the interface between the visual display and the underlying row data.
+
+Key responsibilities:
+- Storing and managing the list of TableRow objects
+- Providing row lookup by index, ID, or condition
+- Managing row selection state
+- Creating cell values from row data using provided callbacks
+- Maintaining row index cell values (e.g., row numbers)
+
+The class uses callback functions to create row index values and cell values,
+allowing the table implementation to define how data is displayed in cells.
+
+Classes:
+    TableValueRows: Manages the collection and state of table value rows
+"""
+from typing import Any, Callable, List, Optional
 
 from PyQt6.QtCore import pyqtSignal
 

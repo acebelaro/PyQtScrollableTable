@@ -1,3 +1,25 @@
+"""
+Module for undo/redo functionality in the table system.
+
+This module provides the `TableUndoRedo` class that manages the undo and redo
+history for table operations. It tracks all modifiable actions (add, delete,
+edit, move, cut rows) and allows users to revert or reapply these actions.
+
+Key features:
+- Maintains separate stacks for undo and redo operations
+- Configurable maximum history size (default: 10 operations)
+- Automatic event type dispatching to appropriate revert functions
+- Integration with the row actions system for executing reversions
+- Support for all table operations: add, delete, edit, move up/down, cut
+
+The undo/redo system works by storing `TableEvent` objects that contain the
+event type and associated data needed to revert the operation. When undo is
+called, the revert function is executed and a new event is created for the
+redo stack, and vice versa.
+
+Classes:
+    TableUndoRedo: Manages undo/redo history and operations for table actions
+"""
 from typing import Any, Dict, List, Optional, Callable
 
 from qt_table_types import (

@@ -1,3 +1,23 @@
+"""
+Module for managing the visual display of value rows in the table.
+
+This module provides the `TableValueRowsDisplay` class that handles the
+visual presentation of table rows within a scrollable area. It manages
+the Qt widgets that display rows and handles the layout of rows within
+a scroll area.
+
+Key responsibilities:
+- Creating and configuring the scroll area for row display
+- Adding rows at specific indices in the layout
+- Removing rows from the display with optional widget cleanup
+- Managing the vertical layout of rows within the scroll area
+
+The display layer is separated from the data layer (`TableValueRows`) to
+maintain a clean separation between data management and visual presentation.
+
+Classes:
+    TableValueRowsDisplay: Manages the visual display of table rows in a scroll area
+"""
 from typing import Any
 from PyQt6 import QtCore
 from PyQt6.QtWidgets import (

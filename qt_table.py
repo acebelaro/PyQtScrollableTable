@@ -1,3 +1,45 @@
+"""
+Main table component module for creating scrollable tables in PyQt6.
+
+This module provides the `Table` abstract base class that serves as the core
+component for building customizable, scrollable tables with support for:
+
+- Row management (add, delete, swap rows)
+- Undo/redo functionality
+- Copy/cut/paste operations
+- Keyboard shortcuts (Ctrl+Z, Ctrl+Y, Ctrl+C, Ctrl+X, Ctrl+V)
+- Button controls for row operations
+- Customizable cell types and styling
+- Row selection and double-click events
+
+The `Table` class is designed to be subclassed, with abstract methods that
+must be implemented to define how row data is created, displayed, and managed.
+
+Example:
+    >>> class MyTable(Table):
+    ...     def _create_row_index_cell_value(self, row_index: int) -> str:
+    ...         return str(row_index + 1)
+    ...
+    ...     def _create_row_cell_values(self, row_index: int, data: Any) -> List[TableRowCellValue]:
+    ...         # Return cell values based on data
+    ...         pass
+    ...
+    ...     def _create_data_from_row_cell_values(self, cell_values: List[TableRowCellValue]) -> Any:
+    ...         # Reconstruct data from cell values
+    ...         pass
+    ...
+    ...     def _on_row_added(self, row_index: int, data: Any) -> None:
+    ...         print(f"Row added at index {row_index}")
+    ...
+    ...     def _on_row_deleted(self, row_index: int, data: Any) -> None:
+    ...         print(f"Row deleted at index {row_index}")
+    ...
+    ...     def _on_rows_swapped(self, upper_row_info: RowInfo, lower_row_info: RowInfo) -> None:
+    ...         print("Rows swapped")
+    ...
+    ...     def _create_row_data_copy(self, row_info: RowInfo) -> Any:
+    ...         return copy.deepcopy(row_info.data)
+"""
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional
 

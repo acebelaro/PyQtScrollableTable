@@ -1,3 +1,16 @@
+"""
+Module for creating and managing table header rows.
+
+This module provides the `TableHeaderRows` class that handles the creation
+and display of column header rows in the table. The header row displays
+column titles and defines the visual structure of the table columns.
+
+The header row height and styling are configurable through `TableHeaderRowConfig`,
+and column properties are defined by `TableColumnConfig` objects.
+
+Classes:
+    TableHeaderRows: Creates and manages the header row display for table columns
+"""
 from typing import List
 
 from PyQt6 import QtCore

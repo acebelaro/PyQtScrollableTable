@@ -69,8 +69,11 @@ class SampleTable(Table):
             if param.is_selected:
                 return "selected"
             else:
-                # no class
-                pass
+                data: SampleData = param.data
+                if data.value % 2 == 0:
+                    return "even"
+                else:
+                    return "odd"
             return ""
 
         value_row_config = TableValueRowConfig(
@@ -81,7 +84,19 @@ class SampleTable(Table):
                     styles=[
                         "background-color: #0ec0e8",
                     ],
-                )
+                ),
+                TableElemClassStyle(
+                    class_name="even",
+                    styles=[
+                        "background-color: #cceeff",
+                    ],
+                ),
+                TableElemClassStyle(
+                    class_name="odd",
+                    styles=[
+                        "background-color: #b3e6ff",
+                    ],
+                ),
             ],
             row_class_name_decider=row_class_name_decider,
         )
