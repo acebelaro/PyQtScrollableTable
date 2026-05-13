@@ -143,9 +143,8 @@ class TableRowMovedEventData(NamedTuple):
 
 
 class TableRowCutEventData(NamedTuple):
-    deleted_row_index: int
-    added_row_index: int
-    data: Any
+    delete_row_event_data: TableRowDeleteEventData
+    add_row_event_data: TableRowAddEventData
 
 
 class TableEvent(NamedTuple):

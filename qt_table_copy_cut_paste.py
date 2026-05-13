@@ -62,40 +62,77 @@ class TableCopyCutPaste(TableRowAction):
         source_row: RowInfo,
         selected_row: RowInfo,
     ):
-        adjust_row_index_start = -1
-        destination_row_index = selected_row.row_index + 1
-        data_copy = self._row_actions.create_row_data_copy(source_row)
-        add_event = self._add_new_row_for_paste(
-            destination_row_index=destination_row_index,
-            data_copy=data_copy,
-        )
-        adjust_row_index_start = destination_row_index
-        if self._copy_type == CopyType.CUT:
-            delete_row_index = source_row.row_index
-            if selected_row.row_index < delete_row_index:
-                delete_row_index = delete_row_index + 1
-            delete_event = self._delete_cut_row(delete_row_index=delete_row_index)
-            if delete_event:
-                # create cut event
-                cut_event = TableEvent(
-                    type=TableEventType.ROW_CUT,
-                    event_data=TableRowCutEventData(
-                        deleted_row_index=delete_row_index,
-                        added_row_index=destination_row_index,
-                        data=source_row.data,
-                    ),
-                )
-                self._undo_redo.add_undo_event(event=cut_event)
-                if delete_row_index < adjust_row_index_start:
-                    adjust_row_index_start = delete_row_index
-            self.reset()
-        else:
-            # register add event for revert
-            if add_event:
-                self._undo_redo.add_undo_event(event=add_event)
+        if self._copy_type != CopyType.NONE:
+            adjust_row_index_start = selected_row.row_index
 
-        if adjust_row_index_start != -1:
+            delete_event: Optional[TableEvent] = None
+            if self._copy_type == CopyType.CUT:
+                # delete at source row
+                delete_param = TableDeleteRowParam(
+                    row_index=source_row.row_index,
+                    confirm_before_deleting=False,
+                    report_when_deleted=False,
+                )
+                delete_event = self._row_actions.delete_row(delete_param)
+
+            # add to selected row
+            data_copy = self._row_actions.create_row_data_copy(source_row)
+            create_add_param = TableCreateAddRowParam(
+                row_index=selected_row.row_index,
+                data=data_copy,
+                skip_select=False,
+                confirm_before_adding=False,
+                report_when_added=False,
+            )
+            add_event = self._row_actions.create_and_add_row_at_index(create_add_param)
+
+            if self._copy_type == CopyType.CUT:
+                if delete_event and add_event:
+                    # create cut event
+                    cut_event = TableEvent(
+                        type=TableEventType.ROW_CUT,
+                        event_data=TableRowCutEventData(
+                            delete_row_event_data=delete_event.event_data,
+                            add_row_event_data=add_event.event_data,
+                        ),
+                    )
+                    self._undo_redo.add_undo_event(event=cut_event)
+                    if source_row.row_index < adjust_row_index_start:
+                        adjust_row_index_start = source_row.row_index
+            else:
+                if add_event:
+                    self._undo_redo.add_undo_event(event=add_event)
+
             self._row_actions.adjust_row_index_cells(adjust_row_index_start)
+            # destination_row_index = selected_row.row_index + 1
+            # data_copy = self._row_actions.create_row_data_copy(source_row)
+            # add_event = self._add_new_row_for_paste(
+            #     destination_row_index=destination_row_index,
+            #     data_copy=data_copy,
+            # )
+            # adjust_row_index_start = destination_row_index
+            # if self._copy_type == CopyType.CUT:
+            #     delete_row_index = source_row.row_index
+            #     if selected_row.row_index < delete_row_index:
+            #         delete_row_index = delete_row_index + 1
+            #     delete_event = self._delete_cut_row(delete_row_index=delete_row_index)
+            #     if delete_event:
+            #         # create cut event
+            #         cut_event = TableEvent(
+            #             type=TableEventType.ROW_CUT,
+            #             event_data=TableRowCutEventData(
+            #                 delete_row_event_data=delete_event.event_data,
+            #                 add_row_event_data=add_event.event_data,
+            #             ),
+            #         )
+            #         self._undo_redo.add_undo_event(event=cut_event)
+            #         if delete_row_index < adjust_row_index_start:
+            #             adjust_row_index_start = delete_row_index
+            #     self.reset()
+            # else:
+            #     # register add event for revert
+            #     if add_event:
+            #         self._undo_redo.add_undo_event(event=add_event)
 
     def _add_new_row_for_paste(
         self,

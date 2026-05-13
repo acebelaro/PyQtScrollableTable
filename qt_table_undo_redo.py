@@ -212,35 +212,37 @@ class TableUndoRedo(TableRowAction):
         self,
         cut_event_data: TableRowCutEventData,
     ) -> TableEvent:
-        revert_row_cut = None
-        # re-add deleted row
-        create_add_param = TableCreateAddRowParam(
-            row_index=cut_event_data.deleted_row_index,
-            data=cut_event_data.data,
-            skip_select=True,
-            confirm_before_adding=False,
-            report_when_added=False,
-        )
-        self._row_actions.create_and_add_row_at_index(create_add_param)
 
-        # delete added row
+        # delete row at addition
+        add_row_event_data = cut_event_data.add_row_event_data
         delete_param = TableDeleteRowParam(
-            row_index=cut_event_data.added_row_index,
+            row_index=add_row_event_data.row_index,
             confirm_before_deleting=False,
             report_when_deleted=False,
         )
-        self._row_actions.delete_row(delete_param)
+        delete_event = self._row_actions.delete_row(delete_param)
+
+        # re-add row at deletion
+        delete_row_event_data = cut_event_data.delete_row_event_data
+        create_add_param = TableCreateAddRowParam(
+            row_index=delete_row_event_data.row_index,
+            data=delete_row_event_data.row_data,
+            skip_select=False,
+            confirm_before_adding=False,
+            report_when_added=False,
+        )
+        add_event = self._row_actions.create_and_add_row_at_index(create_add_param)
+
         revert_row_cut = TableEvent(
             type=TableEventType.ROW_CUT,
             event_data=TableRowCutEventData(
-                deleted_row_index=cut_event_data.added_row_index,
-                added_row_index=cut_event_data.deleted_row_index,
-                data=cut_event_data.data,
+                delete_row_event_data=delete_event.event_data,
+                add_row_event_data=add_event.event_data,
             ),
         )
-        adjust_row_index = cut_event_data.added_row_index
-        if cut_event_data.deleted_row_index < adjust_row_index:
-            adjust_row_index = cut_event_data.deleted_row_index
+        adjust_row_index = add_row_event_data.row_index
+        if delete_row_event_data.row_index < adjust_row_index:
+            adjust_row_index = delete_row_event_data.row_index
         self._row_actions.adjust_row_index_cells(adjust_row_index)
         return revert_row_cut
 
