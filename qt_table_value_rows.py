@@ -1,31 +1,48 @@
-from typing import List, Optional
+"""
+Module for managing the collection of value rows in the table.
 
-from PyQt6.QtWidgets import QGroupBox
+This module provides the `TableValueRows` class that manages the data layer
+of the table, handling the storage, retrieval, and manipulation of table rows.
+It serves as the interface between the visual display and the underlying row data.
 
-from qt_table_rows_scroll_area import TableValueRowsScrollArea
-from qt_table_types import (
-    RowInfo,
-)
+Key responsibilities:
+- Storing and managing the list of TableRow objects
+- Providing row lookup by index, ID, or condition
+- Managing row selection state
+- Creating cell values from row data using provided callbacks
+- Maintaining row index cell values (e.g., row numbers)
+
+The class uses callback functions to create row index values and cell values,
+allowing the table implementation to define how data is displayed in cells.
+
+Classes:
+    TableValueRows: Manages the collection and state of table value rows
+"""
+from typing import Any, Callable, List, Optional
+
+from PyQt6.QtCore import pyqtSignal
+
+from qt_table_types import RowInfo, TableRowCellValue
 from qt_table_row import TableRow
-
-ROW_INDEX_PLACEHOLDER_TOKEN = "%row_index%"
 
 
 class TableValueRows:
 
+    on_rows_swapped = pyqtSignal(int, int)
+
     def __init__(
         self,
-        groupbox_container: QGroupBox,
-        y_pos: int,
-        select_new_row_added: bool,
+        row_index_cell_value_creator: Callable[[int], str],
+        row_cell_values_creator: Callable[[int, Any], List[TableRowCellValue]],
     ):
-        self._groupbox_container = groupbox_container
-        self._select_new_row_added = select_new_row_added
-        self._rows_scroll_area = TableValueRowsScrollArea(
-            groupbox_container=self._groupbox_container,
-            y_pos=y_pos,
-        )
+        super().__init__()
         self._rows: List[TableRow] = []
+        self._row_index_cell_value_creator = row_index_cell_value_creator
+        self._row_cell_values_creator = row_cell_values_creator
+
+    @property
+    def rows(self) -> List[TableRow]:
+        return self._rows
 
     @property
     def row_count(self) -> int:
@@ -35,108 +52,75 @@ class TableValueRows:
     def selected_row(self) -> Optional[TableRow]:
         return next((b for b in self._rows if b.is_selected), None)
 
-    @property
-    def selected_row_index(self) -> int:
-        selected_row = self.selected_row
-        if selected_row:
-            selected_row_id = selected_row.id
-            return self.get_row_index_by_id(row_id=selected_row_id)
-        return -1
-
     def is_valid_row_index(self, row_index: int) -> bool:
         if row_index >= 0 and row_index < self.row_count:
             return True
         return False
-
-    def add_row_at_index(
-        self, row_index: int, row: TableRow, skip_select: bool = False
-    ):
-        print(f"Adding at row {row_index}")
-        self._rows.insert(row_index, row)
-        self._rows_scroll_area.add_row_at_widget_index(row=row, widget_index=row_index)
-
-        if self._select_new_row_added and not skip_select:
-            selected_row = self.selected_row
-            if selected_row:
-                selected_row.clear_selected_state()
-            row.set_as_selected()
-
-    def delete_row_at_index(self, row_index: int) -> Optional[RowInfo]:
-        deleted_row_info = None
-        if self.is_valid_row_index(row_index=row_index):
-            row = self._rows[row_index]
-            deleted_row_info = RowInfo(
-                row_index=row_index,
-                data=self._rows[row_index].data,
-            )
-            del self._rows[row_index]
-            self._rows_scroll_area.remove_row(row=row)
-            row.setParent(None)
-            row.deleteLater()
-        return deleted_row_info
-
-    def swap_row_index(
-        self,
-        upper_row_index: int,
-        lower_row_index: int,
-    ) -> bool:
-        is_swapped = False
-
-        # fmt: off
-        if self.is_valid_row_index(row_index=upper_row_index) and \
-            self.is_valid_row_index(row_index=lower_row_index):
-        # fmt: on
-
-            deleted_row = self._rows[lower_row_index]
-            del self._rows[lower_row_index]
-            self._rows_scroll_area.remove_row(deleted_row)
-
-            self._rows.insert(upper_row_index, deleted_row)
-            self._rows_scroll_area.add_row_at_widget_index(row=deleted_row,widget_index=upper_row_index)
-            is_swapped = True
-
-        return is_swapped
-
-    def get_row_by_id(self, row_id) -> Optional[TableRow]:
-        return next((r for r in self._rows if r.id == row_id), None)
-
-    def get_row_index_by_id(self, row_id: str) -> int:
-        row_index = 0
-        while row_index < self.row_count:
-            if row_id == self._rows[row_index].id:
-                return row_index
-            row_index = row_index + 1
-        return -1
 
     def get_row_at_index(self, row_index: int) -> Optional[TableRow]:
         if self.is_valid_row_index(row_index=row_index):
             return self._rows[row_index]
         return None
 
-    def get_selected_row_info(self) -> Optional[RowInfo]:
-        selected_row = self.selected_row
-        if selected_row:
-            selected_row_index = self.get_row_index_by_id(row_id=selected_row.id)
-            if selected_row_index != -1:
-                return RowInfo(
-                    row_index=selected_row_index,
-                    data=selected_row.data,
-                )
-        return None
+    def add_row(self, row: TableRow, row_index: int):
+        self._rows.insert(row_index, row)
 
-    def set_selected_row(self, row_index: int):
+    def delete_row_at_index(self, row_index: int) -> Optional[TableRow]:
+        deleted_row = None
+        if self.is_valid_row_index(row_index=row_index):
+            deleted_row = self._rows[row_index]
+            del self._rows[row_index]
+        return deleted_row
+
+    def get_row_by_id(self, row_id: str) -> Optional[RowInfo]:
+        def is_row_id_match(row: TableRow) -> bool:
+            if row.id == row_id:
+                return True
+            return False
+
+        return self._get_row_based_on_condition(condition=is_row_id_match)
+
+    def clear_other_rows_selected_state(self, except_row_id: str):
+        for row in self._rows:
+            if row.id != except_row_id and row.is_selected:
+                row.clear_selected_state()
+
+    def get_selected_row_info(self) -> Optional[RowInfo]:
+        def is_selected_row(row: TableRow) -> bool:
+            return row.is_selected
+
+        return self._get_row_based_on_condition(condition=is_selected_row)
+
+    def set_row_as_selected(self, row_index: int):
         if self.is_valid_row_index(row_index=row_index):
             self._rows[row_index].set_as_selected()
 
-    def update_rows_selected_states_due_to_toggled_row(
-        self, toggled_row_id: str, is_selected: bool
-    ):
-        if is_selected:
-            for row in self._rows:
-                if row.id != toggled_row_id:
-                    row.clear_selected_state()
+    def set_data_of_row(self, row_index: int, data: Any):
+        if self.is_valid_row_index(row_index=row_index):
+            self._rows[row_index].set_data(data=data)
+            cell_values = self._row_cell_values_creator(row_index, data)
+            self._rows[row_index].set_cell_values(cell_values=cell_values)
 
-    def set_row_index_cell_value(self, row_index: int, row_index_cell_value: str):
-        self._rows[row_index].set_row_index_cell_value(
-            row_index_cell_value=row_index_cell_value
-        )
+    def adjust_row_index_cells(self, start_row_index: int = 0):
+        row_count = self.row_count
+        row_index = start_row_index
+        while row_index < row_count:
+            row_index_cell_value = self._row_index_cell_value_creator(row_index)
+            self._rows[row_index].set_row_index_cell_value(
+                row_index_cell_value=row_index_cell_value
+            )
+            row_index = row_index + 1
+
+    def _get_row_based_on_condition(
+        self, condition: Callable[[TableRow], bool]
+    ) -> Optional[RowInfo]:
+        row_index = 0
+        while row_index < self.row_count:
+            current_row = self._rows[row_index]
+            if condition(current_row):
+                return RowInfo(
+                    row_index=row_index,
+                    data=current_row.data,
+                )
+            row_index = row_index + 1
+        return None

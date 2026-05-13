@@ -1,5 +1,5 @@
 from typing import List, NamedTuple
-from PyQt6.QtWidgets import QGroupBox
+from PyQt6.QtWidgets import QGroupBox, QMessageBox
 
 from qt_table_types import (
     BeforeUpdateConfirmers,
@@ -14,7 +14,6 @@ from qt_table_types import (
     TableValueRowConfig,
 )
 from qt_table import (
-    ROW_INDEX_PLACEHOLDER_TOKEN,
     Table,
     TableConfig,
     TableRowCellValue,
@@ -33,6 +32,8 @@ class SampleTable(Table):
         self,
         groupbox_container: QGroupBox,
         button_controls: TableButtonControls,
+        use_confirmers: bool,
+        report_events: bool,
     ):
         column_configs = [
             TableColumnConfig(
@@ -68,8 +69,11 @@ class SampleTable(Table):
             if param.is_selected:
                 return "selected"
             else:
-                # no class
-                pass
+                data: SampleData = param.data
+                if data.value % 2 == 0:
+                    return "even"
+                else:
+                    return "odd"
             return ""
 
         value_row_config = TableValueRowConfig(
@@ -80,7 +84,19 @@ class SampleTable(Table):
                     styles=[
                         "background-color: #0ec0e8",
                     ],
-                )
+                ),
+                TableElemClassStyle(
+                    class_name="even",
+                    styles=[
+                        "background-color: #cceeff",
+                    ],
+                ),
+                TableElemClassStyle(
+                    class_name="odd",
+                    styles=[
+                        "background-color: #b3e6ff",
+                    ],
+                ),
             ],
             row_class_name_decider=row_class_name_decider,
         )
@@ -92,7 +108,6 @@ class SampleTable(Table):
                 header_row_config=header_row_config,
                 column_configs=column_configs,
                 value_row_config=value_row_config,
-                row_number_cell_value_creator=self._create_row_number_cell_value,
                 button_controls=button_controls,
                 before_update_confirmers=BeforeUpdateConfirmers(
                     confirm_row_addition=self._confirm_row_addition,
@@ -104,6 +119,12 @@ class SampleTable(Table):
                 ),
             ),
         )
+
+        self._use_confirmers = use_confirmers
+        self._report_events = report_events
+
+    def _create_row_index_cell_value(self, row_index: int) -> str:
+        return f"Step {row_index+1}"
 
     def _create_row_cell_values(
         self,
@@ -139,35 +160,79 @@ class SampleTable(Table):
             value=cell_values[3].value,
         )
 
-    def _on_row_deleted(self, row_index: int, data: int) -> None:
-        print(f"Deleted row index {row_index} with data {data}")
+    def _on_row_added(self, row_index: int, data: int) -> None:
+        if self._report_events:
+            msg_box = QMessageBox(
+                QMessageBox.Icon.Information,
+                "Row Added",
+                f"Added row {row_index}",
+                QMessageBox.StandardButton.Yes,
+            )
+            msg_box.exec()
 
-    def _check_if_row_can_accept_child(self, row_info: RowInfo):
-        row_data: SampleData = row_info.data
-        if row_data.index % 2 == 0:
-            return True
-        return False
+    def _on_row_deleted(self, row_index: int, data: int) -> None:
+        if self._report_events:
+            msg_box = QMessageBox(
+                QMessageBox.Icon.Information,
+                "Row Deleted",
+                f"Deleted row {row_index}",
+                QMessageBox.StandardButton.Yes,
+            )
+            msg_box.exec()
 
     def _on_rows_swapped(
         self,
-        lower_row_index: int,
-        upper_row_index: int,
+        upper_row_info: RowInfo,
+        lower_row_info: RowInfo,
     ):
-        print(f"Swapped {lower_row_index} <-> {upper_row_index}")
-
-    def _create_row_number_cell_value(self, row_number: int) -> str:
-        return f"Step {row_number}"
+        if self._report_events:
+            msg_box = QMessageBox(
+                QMessageBox.Icon.Information,
+                "Rows Swapped",
+                f"Swapped rows {upper_row_info.row_index} and {lower_row_info.row_index}",
+                QMessageBox.StandardButton.Yes,
+            )
+            msg_box.exec()
 
     def _confirm_row_addition(self, row_info: RowInfo) -> bool:
-        print("Just add...")
+        if self._use_confirmers:
+            msg_box = QMessageBox(
+                QMessageBox.Icon.Question,
+                "Confirm Add",
+                "Confirm Add?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            return msg_box.exec() == QMessageBox.StandardButton.Yes
         return True
 
     def _confirm_row_deletion(self, row_info: RowInfo) -> bool:
-        print("Just delete...")
+        if self._use_confirmers:
+            msg_box = QMessageBox(
+                QMessageBox.Icon.Question,
+                "Confirm Delete",
+                "Confirm Delete?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            return msg_box.exec() == QMessageBox.StandardButton.Yes
         return True
 
     def _confirm_row_swap(
         self, upper_row_info: RowInfo, lower_row_info: RowInfo
     ) -> bool:
-        print("Just swap...")
+        if self._use_confirmers:
+            msg_box = QMessageBox(
+                QMessageBox.Icon.Question,
+                "Confirm Swap",
+                f"Confirm Swap: {upper_row_info.row_index} <-> {lower_row_info.row_index}?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            return msg_box.exec() == QMessageBox.StandardButton.Yes
         return True
+
+    def _create_row_data_copy(self, row_info: RowInfo) -> SampleData:
+        data: SampleData = row_info.data
+        return SampleData(
+            enabled=data.enabled,
+            name=data.name,
+            value=data.value,
+        )

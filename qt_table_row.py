@@ -1,3 +1,23 @@
+"""
+Module for table row widgets and row-level interactions.
+
+This module provides the `TableRow` class that represents a single row in the table.
+Each row is a QWidget containing multiple cell widgets and handles user interactions
+such as selection, double-clicking, and cell value updates.
+
+Key features:
+- Unique row identification via UUID
+- Row selection with visual feedback
+- Cell value management and updates
+- Dynamic CSS styling based on row state or data
+- Signal emission for row events (selection changes, value updates, double-clicks)
+
+The row's appearance can be customized through CSS classes that are dynamically
+applied based on the row's data or selection state.
+
+Classes:
+    TableRow: A QWidget representing a single table row with cells and interactions
+"""
 from typing import Any, List, Optional
 from PyQt6 import QtCore
 from PyQt6.QtWidgets import (

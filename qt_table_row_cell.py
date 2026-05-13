@@ -1,3 +1,22 @@
+"""
+Module for table row cell widgets and value management.
+
+This module provides the cell widget classes that render individual cell values
+within a table row. Different cell types are supported:
+
+- Textbox cells: Editable text input fields
+- Checkbox cells: Boolean toggle inputs
+- Label cells: Read-only text display
+
+The `TableRowCellValueWidget` abstract base class defines the interface for all
+cell types, ensuring consistent behavior for setting and getting values.
+
+Classes:
+    TableRowCellValueWidget: Abstract base class for all cell value widgets
+    TableRowCellTextbox: Editable text input cell widget
+    TableRowCellCheckbox: Boolean checkbox cell widget
+    TableRowCellLabel: Read-only text label cell widget
+"""
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Optional
 from PyQt6 import QtCore
