@@ -296,15 +296,13 @@ class Table(ABC):
         row.set_cell_values(cell_values=row_cell_values)
         return row
 
-    def _create_and_add_row_at_index(
+    def _confirm_create_and_add_row(
         self,
         create_add_param: TableCreateAddRowParam,
-    ) -> Optional[TableEvent]:
-        row_added_event = None
+    ) -> bool:
         proceed_to_add = True
         if (
-            create_add_param.confirm_before_adding
-            and self._config.before_update_confirmers
+            self._config.before_update_confirmers
             and self._config.before_update_confirmers.confirm_row_addition
         ):
             proceed_to_add = self._config.before_update_confirmers.confirm_row_addition(
@@ -312,6 +310,18 @@ class Table(ABC):
                     row_index=create_add_param.row_index,
                     data=create_add_param.data,
                 )
+            )
+        return proceed_to_add
+
+    def _create_and_add_row_at_index(
+        self,
+        create_add_param: TableCreateAddRowParam,
+    ) -> Optional[TableEvent]:
+        row_added_event = None
+        proceed_to_add = True
+        if create_add_param.confirm_before_adding:
+            proceed_to_add = self._confirm_create_and_add_row(
+                create_add_param=create_add_param
             )
         if proceed_to_add:
             new_row = self._create_row(
@@ -338,42 +348,55 @@ class Table(ABC):
                 )
         return row_added_event
 
+    def _confirm_delete_row(
+        self, delete_param: TableDeleteRowParam, row_to_delete: RowInfo
+    ) -> bool:
+        proceed_to_delete = True
+        if (
+            self._before_update_confirmers
+            and self._before_update_confirmers.confirm_row_deletion
+        ):
+            proceed_to_delete = self._before_update_confirmers.confirm_row_deletion(
+                RowInfo(
+                    row_index=delete_param.row_index,
+                    data=row_to_delete.data,
+                )
+            )
+        return proceed_to_delete
+
+    def _adjust_selected_row_due_to_deletion_of_selected_row(
+        self, deleted_row_index: int
+    ):
+        new_selected_row_index = deleted_row_index
+        row_count = self.row_count
+        if new_selected_row_index == row_count:
+            new_selected_row_index = row_count - 1
+        self._value_rows.set_row_as_selected(row_index=new_selected_row_index)
+
     def _delete_row(self, delete_param: TableDeleteRowParam) -> Optional[TableEvent]:
         table_event: Optional[TableEvent] = None
-        proceed_to_delete = True
         row_to_delete = self._value_rows.get_row_at_index(
             row_index=delete_param.row_index
         )
         if row_to_delete:
-            is_deleted_row_selected = row_to_delete.is_selected
-            if (
-                delete_param.confirm_before_deleting
-                and self._before_update_confirmers
-                and self._before_update_confirmers.confirm_row_deletion
-            ):
-                proceed_to_delete = self._before_update_confirmers.confirm_row_deletion(
-                    RowInfo(
-                        row_index=delete_param.row_index,
-                        data=row_to_delete.data,
-                    )
+            proceed_to_delete = True
+            if delete_param.confirm_before_deleting:
+                proceed_to_delete = self._confirm_delete_row(
+                    delete_param=delete_param, row_to_delete=row_to_delete
                 )
             if proceed_to_delete:
-                pass
+                is_deleted_row_selected = row_to_delete.is_selected
                 deleted_row = self._value_rows.delete_row_at_index(
                     row_index=delete_param.row_index
                 )
                 if deleted_row:
                     data_of_deleted_row = deleted_row.data
-                    self._value_rows_display.remove_row(row=deleted_row)
-                    deleted_row.setParent(None)
-                    deleted_row.deleteLater()
+                    self._value_rows_display.remove_row(
+                        row=deleted_row, delete_row_widget=True
+                    )
                     self._value_rows.adjust_row_index_cells(
                         start_row_index=delete_param.row_index
                     )
-                    if delete_param.report_when_deleted:
-                        self._on_row_deleted(
-                            row_index=delete_param.row_index, data=data_of_deleted_row
-                        )
                     table_event = TableEvent(
                         type=TableEventType.ROW_DELETED,
                         event_data=TableRowDeleteEventData(
@@ -385,52 +408,48 @@ class Table(ABC):
                         is_deleted_row_selected
                         and self._config.select_next_row_after_row_deletion
                     ):
-                        new_selected_row_index = delete_param.row_index
-                        row_count = self.row_count
-                        if new_selected_row_index == row_count:
-                            new_selected_row_index = row_count - 1
-
-                        self._value_rows.set_row_as_selected(
-                            row_index=new_selected_row_index
+                        self._adjust_selected_row_due_to_deletion_of_selected_row(
+                            deleted_row_index=delete_param.row_index
+                        )
+                    if delete_param.report_when_deleted:
+                        self._on_row_deleted(
+                            row_index=delete_param.row_index, data=data_of_deleted_row
                         )
         return table_event
+
+    def _confirm_swap_rows(self, upper_row: RowInfo, lower_row: RowInfo) -> bool:
+        proceed_to_swap = True
+        if (
+            self._before_update_confirmers
+            and self._before_update_confirmers.confirm_row_swap
+        ):
+            proceed_to_swap = self._before_update_confirmers.confirm_row_swap(
+                upper_row,
+                lower_row,
+            )
+        return proceed_to_swap
 
     def _swap_rows(self, swap_param: TableSwapRowsParam) -> bool:
         is_swapped = False
         upper_row_index = swap_param.upper_row_index
         lower_row_index = swap_param.lower_row_index
-        is_upper_row_index_valid = self._value_rows.is_valid_row_index(
-            row_index=upper_row_index
-        )
-        is_lower_row_index_valid = self._value_rows.is_valid_row_index(
-            row_index=lower_row_index
-        )
-        if is_upper_row_index_valid and is_lower_row_index_valid:
+        upper_row = self._value_rows.get_row_at_index(row_index=upper_row_index)
+        lower_row = self._value_rows.get_row_at_index(row_index=lower_row_index)
+        if upper_row and lower_row:
             proceed_to_swap = True
-            upper_row = self._value_rows.get_row_at_index(row_index=upper_row_index)
-            lower_row = self._value_rows.get_row_at_index(row_index=lower_row_index)
-            if (
-                swap_param.confirm_before_swapping
-                and self._before_update_confirmers
-                and self._before_update_confirmers.confirm_row_swap
-            ):
-                upper_row_info = RowInfo(
-                    row_index=upper_row_index,
-                    data=upper_row.data,
-                )
-                lower_row_info = RowInfo(
-                    row_index=lower_row_index,
-                    data=lower_row.data,
-                )
-                proceed_to_swap = self._before_update_confirmers.confirm_row_swap(
-                    upper_row_info=upper_row_info,
-                    lower_row_info=lower_row_info,
+            if swap_param.confirm_before_swapping:
+                proceed_to_swap = self._confirm_swap_rows(
+                    upper_row=upper_row,
+                    lower_row=lower_row,
                 )
             if proceed_to_swap:
                 deleted_row = self._value_rows.delete_row_at_index(
                     row_index=lower_row_index
                 )
-                self._value_rows_display.remove_row(row=deleted_row)
+                self._value_rows_display.remove_row(
+                    row=deleted_row,
+                    delete_row_widget=False,
+                )
 
                 self._value_rows.add_row(row=deleted_row, row_index=upper_row_index)
                 self._value_rows_display.add_row_at_index(

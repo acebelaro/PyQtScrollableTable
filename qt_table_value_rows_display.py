@@ -53,5 +53,10 @@ class TableValueRowsDisplay:
     def add_row_at_index(self, row: TableRow, row_index: int):
         self._table_layout.insertWidget(row_index, row)
 
-    def remove_row(self, row: TableRow) -> Any:
+    def remove_row(self, row: TableRow, delete_row_widget: bool) -> Any:
+        row_data = row.data
         self._table_layout.removeWidget(row)
+        if delete_row_widget:
+            row.setParent(None)
+            row.deleteLater()
+        return row_data
